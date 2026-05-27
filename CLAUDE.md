@@ -600,7 +600,9 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 │   ├── supabase-server.ts           # getServerClient() + getServiceClient() — uses next/headers, server-only
 │   └── resend.ts                    # Cached Resend client + EMAIL_FROM
 ├── public/
-│   └── images/                      # Logos, posters, partner images (mostly empty; add as needed)
+│   └── images/
+│       ├── editions/                # Past-edition posters (gz1.jpg … gz13.jpg, gz-special-2024.jpg)
+│       └── partners/                # Partner + media-partner logos (.png)
 ├── CLAUDE.md                        # This file — project brief + reference
 ├── README.md                        # Setup + workflow
 ├── .env.local                       # Secrets (never commit this)

@@ -170,7 +170,7 @@ app/             Pages + API routes (App Router)
 components/      Layout, forms, UI primitives
 emails/          React-Email templates
 lib/             jam-config, phase-utils, i18n, validation, supabase clients, etc.
-public/images/   Logos, partner logos, posters
+public/images/   Local assets — editions/ (past-jam posters), partners/ (logos)
 ```
 
 See CLAUDE.md → Folder Structure for the full tree.
