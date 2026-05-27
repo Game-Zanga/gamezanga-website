@@ -3,6 +3,8 @@
 > This file is the single source of truth for this project.
 > Read it fully before writing any code or making any decisions.
 
+> **Status**: Live in production at **<https://www.gamezanga.net>** (apex `gamezanga.net` 308-redirects to `www`). Deployed on Vercel from the `Game-Zanga/gamezanga-website` GitHub repo — every push to `main` auto-deploys.
+
 ---
 
 ## What Is Game Zanga?
@@ -53,10 +55,12 @@ EMAIL_FROM=hello@gamezanga.net
 ADMIN_SECRET=replace-with-long-random-string
 
 # Public site URL (used for magic-link email redirects)
+# Dev:  http://localhost:3000
+# Prod: https://www.gamezanga.net
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-**Never commit `.env.local` to git.** Use a *different* `ADMIN_SECRET` in production than in dev.
+**Never commit `.env.local` to git.** Use a *different* `ADMIN_SECRET` in production than in dev — generate a fresh one with `openssl rand -hex 32` and set it in Vercel's env vars, *not* in this file.
 
 ---
 
@@ -436,15 +440,41 @@ Requires `gamezanga.net` to be verified in Resend (Domains tab).
 
 ## Past Editions Data
 
-Add an archive section. Use this as a starting structure (expand as more data is known):
+`PAST_EDITIONS` (in [`lib/jam-config.ts`](lib/jam-config.ts)) holds the archive — currently 14 entries (Special Edition 2024 + editions 13 → 1). Rendered as a poster grid on `/about` via `EditionCard` in [`app/about/page.tsx`](app/about/page.tsx).
 
 ```ts
-export const PAST_EDITIONS = [
-  { edition: 12, year: 2024, itchio_url: "https://itch.io/jam/gamezanga12", theme_ar: "???", theme_en: "???" },
-  { edition: 11, year: 2023, itchio_url: "https://itch.io/jam/gamezanga11", theme_ar: "???", theme_en: "???" },
-  // Add more as known
-]
+export type PastEdition = {
+  edition: number | null;   // null for non-numbered special editions
+  year: number;
+  label_ar?: string;        // override the auto "النسخة N" label (used by special editions)
+  label_en?: string;        // override "Edition N"
+  poster_url: string;       // empty string = "No poster" placeholder
+  itchio_url?: string;      // omit for editions 1–4 (predate itch.io)
+  theme_ar?: string;
+  theme_en?: string;
+};
 ```
+
+A non-numbered entry looks like:
+
+```ts
+{
+  edition: null,
+  year: 2024,
+  label_ar: "النسخة الخاصة",
+  label_en: "Special Edition",
+  itchio_url: "https://itch.io/jam/gamezanga-specialedition",
+  poster_url: "/images/editions/gz-special-2024.jpg",
+}
+```
+
+### itch.io slug conventions
+
+Slugs aren't fully consistent — editions 5 and 6 use `game-zanga-N` (with dashes), 7+ use `gamezangaN`, and the 2024 special edition is `gamezanga-specialedition`. When you add a new edition, look up the exact slug after creating the jam on itch.io. Editions 1–4 predate itch.io and have no link.
+
+### Poster hosting
+
+Posters are hosted locally under `public/images/editions/`. Filenames follow `gz<N>.jpg` (e.g. `gz12.jpg`), with `gz-special-2024.jpg` for the special edition. When adding a new edition, drop the new poster into that directory and point `poster_url` at the local path.
 
 ---
 
@@ -457,6 +487,50 @@ ADMIN_SECRET=your-long-random-secret-here
 ```
 
 The admin enters this secret on the `/admin` login page. It's stored in `sessionStorage` and sent as a header with every admin API call.
+
+---
+
+## Deployment
+
+| What | Where |
+|---|---|
+| Hosting | Vercel — project linked to `Game-Zanga/gamezanga-website` on GitHub |
+| Auto-deploy | every push to `main` → ~60s build |
+| Canonical URL | `https://www.gamezanga.net` |
+| Apex `gamezanga.net` | 308 redirects to `www.gamezanga.net` (configured in Vercel → Domains) |
+| SSL | auto-provisioned by Vercel (Let's Encrypt) |
+| Env vars | set in Vercel → Settings → Environment Variables (same keys as `.env.example`) |
+| `NEXT_PUBLIC_SITE_URL` in prod | `https://www.gamezanga.net` |
+| `ADMIN_SECRET` in prod | a *different* value than dev — generated with `openssl rand -hex 32`, kept in a password manager |
+
+**Env var changes require a manual redeploy** — Vercel doesn't apply them retroactively. Trigger via Deployments → ⋯ on latest → Redeploy.
+
+### Supabase Auth — production URLs
+
+In **Supabase Dashboard → Authentication → URL Configuration**:
+
+- **Site URL**: `https://www.gamezanga.net`
+- **Redirect URLs** (allowlist): `https://www.gamezanga.net/auth/verify` *(plus `http://localhost:3000/auth/verify` for dev)*
+
+Without this, magic-link sign-ins from production bounce back to `localhost`.
+
+### Email — Resend
+
+- `gamezanga.net` is **verified** in Resend (SPF + DKIM TXT records live in DNS alongside the Vercel records).
+- Registration confirmations sent directly by `/api/register` via Resend, from `hello@gamezanga.net`.
+- Supabase's Magic Link emails are also routed through Resend, configured in **Supabase → Project Settings → Auth → SMTP Settings**. See the Auth Flow section for the SMTP config.
+
+### DNS
+
+DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS untouched). Records:
+
+| Type | Name | Value |
+|---|---|---|
+| `A` | `@` | `76.76.21.21` *(Vercel anycast)* |
+| `CNAME` | `www` | `cname.vercel-dns.com` |
+| `TXT` | `@` | `v=spf1 include:_spf.resend.com ~all` |
+| `TXT` | `resend._domainkey` | *(provided by Resend)* |
+| `TXT` | `_dmarc` | `v=DMARC1; p=none;` *(optional)* |
 
 ---
 
@@ -610,7 +684,7 @@ Each year, the routine is:
    ALTER TABLE theme_suggestions ALTER COLUMN edition SET DEFAULT 15;
    ALTER TABLE votes             ALTER COLUMN edition SET DEFAULT 15;
    ```
-3. **Update partner logos** in `public/images/partners/` and the lists in `components/home/Partners.tsx` (currently empty).
+3. **Update partner / media-partner logos and links** in [`components/home/Partners.tsx`](components/home/Partners.tsx). Each entry takes `{ src, alt, href? }`. Currently the 12 partners + 4 media partners from edition 13 are wired up, hosted locally under `public/images/partners/`. For a new edition, drop the new logos into that directory and update the lists — `src` should be a local path like `/images/partners/saudi-game-news.png`.
 4. **Rotate `ADMIN_SECRET`** for production via Vercel env vars.
 
 Everything else stays the same.

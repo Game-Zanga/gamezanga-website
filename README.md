@@ -1,10 +1,13 @@
 # Game Zanga — Edition 14
 
+[![live](https://img.shields.io/badge/live-gamezanga.net-b347ff)](https://www.gamezanga.net)
 [![built with Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org)
 [![Tailwind v4](https://img.shields.io/badge/Tailwind-v4-38bdf8)](https://tailwindcss.com)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e)](https://supabase.com)
 
 Custom website for **زنقة الألعاب / Game Zanga** — a 72-hour Arabic-language game jam. Replaces an expensive Wix setup with a self-hosted Next.js app on Vercel.
+
+**Live**: <https://www.gamezanga.net> · **Apex** (`gamezanga.net`) 308-redirects to `www`.
 
 The full product spec — pages, copy, rules, FAQ, design direction — lives in [CLAUDE.md](CLAUDE.md). Read that for the *why* and the *what*. This README is just the *how*.
 
@@ -58,12 +61,14 @@ Most years, the only file you touch is **[`lib/jam-config.ts`](lib/jam-config.ts
 
 | What | Where |
 |---|---|
-| Edition number | `edition: 14` |
+| Edition number | `JAM_CONFIG.edition` |
 | Jam start/end (KSA, UTC+3) | `jam_start`, `jam_end` |
 | Registration / suggestion / voting windows | `registration_open`, `registration_close`, etc. |
-| itch.io URL | `itchio_url` |
+| itch.io URL | `itchio_url` (note: slugs vary — `game-zanga-N` for 5–6, `gamezangaN` for 7+) |
 | Announced theme (once decided) | `announced_theme_ar`, `announced_theme_en` |
-| Move the just-finished edition into the archive | `PAST_EDITIONS` array |
+| Move the just-finished edition into the archive | `PAST_EDITIONS` array (add `poster_url`, `itchio_url`, `theme_ar/en`) |
+
+You'll also typically want to refresh the **partners + media partners** for the new edition in [`components/home/Partners.tsx`](components/home/Partners.tsx) — each entry is `{ src, alt, href? }`.
 
 Then in Supabase, insert a row for the new edition:
 
@@ -114,7 +119,36 @@ Four panels:
 
 ## Deployment
 
-Connect the repo to Vercel. In **Project Settings → Environment Variables**, set every key from `.env.example` (use a **fresh** `ADMIN_SECRET` for production — `openssl rand -hex 32`). Update `NEXT_PUBLIC_SITE_URL` to your domain. Add the production URL to Supabase's Auth redirect allowlist.
+The site is deployed on **Vercel**, connected to the `Game-Zanga/gamezanga-website` GitHub repo. Every push to `main` triggers an auto-deploy in ~60 seconds.
+
+### Production env vars (Vercel → Settings → Environment Variables)
+
+Same keys as `.env.example`, with these production-specific values:
+
+| Key | Production value |
+|---|---|
+| `NEXT_PUBLIC_SITE_URL` | `https://www.gamezanga.net` |
+| `ADMIN_SECRET` | *(a fresh value, **not** the dev one — generate with `openssl rand -hex 32` and store in a password manager)* |
+| Everything else | same as `.env.local` |
+
+After changing any env var, you have to **manually redeploy** (Deployments → ⋯ on latest → Redeploy) — env changes don't apply retroactively.
+
+### Domain (`gamezanga.net`)
+
+- Apex `gamezanga.net` and `www.gamezanga.net` are both added in Vercel → Domains.
+- DNS is hosted at the registrar with an `A` record for the apex and a `CNAME` for `www`, pointing at Vercel.
+- Apex 308-redirects to `www`, so `https://www.gamezanga.net` is canonical.
+- SSL is auto-provisioned by Vercel via Let's Encrypt.
+
+### Supabase auth — production redirect
+
+**Supabase → Authentication → URL Configuration** must include `https://www.gamezanga.net/auth/verify` in **Redirect URLs**, and the **Site URL** must be `https://www.gamezanga.net`. Otherwise magic-link sign-ins on production will bounce.
+
+### Email — Resend
+
+`gamezanga.net` is verified in Resend (SPF + DKIM TXT records live alongside the Vercel DNS records). Registration confirmations send from `hello@gamezanga.net`.
+
+Supabase's auth emails (the Magic Link template) are routed through Resend SMTP — configured in Supabase → Project Settings → Auth → SMTP — so they also send from `hello@gamezanga.net`.
 
 ---
 
