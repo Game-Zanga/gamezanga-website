@@ -25,47 +25,75 @@ export async function POST(req: Request) {
 
   const supabase = getServiceClient();
 
+  // One row per email globally. Look up by email and decide insert vs. update.
   const { data: existing } = await supabase
     .from("participants")
-    .select("id")
+    .select("id, editions")
     .eq("email", data.email)
-    .eq("edition", JAM_CONFIG.edition)
     .maybeSingle();
 
+  const profileFields = {
+    full_name: data.full_name,
+    mobile: data.mobile ?? null,
+    gender: data.gender ?? null,
+    age_group: data.age_group,
+    country: data.country,
+    country_other: data.country_other ?? null,
+    skills: data.skills,
+    skills_other: data.skills_other ?? null,
+    participated_before: data.participated_before,
+  };
+
+  let participantId: string;
+
   if (existing) {
-    return NextResponse.json(
-      { errors: [{ field: "email", code: "err_email_already_registered" }] },
-      { status: 409 }
-    );
-  }
+    const editions = (existing.editions as number[]) ?? [];
+    if (editions.includes(JAM_CONFIG.edition)) {
+      // Already registered for THIS edition — reject duplicates.
+      return NextResponse.json(
+        { errors: [{ field: "email", code: "err_email_already_registered" }] },
+        { status: 409 }
+      );
+    }
 
-  const { data: inserted, error } = await supabase
-    .from("participants")
-    .insert({
-      full_name: data.full_name,
-      email: data.email,
-      mobile: data.mobile ?? null,
-      gender: data.gender ?? null,
-      age_group: data.age_group,
-      country: data.country,
-      country_other: data.country_other ?? null,
-      skills: data.skills,
-      skills_other: data.skills_other ?? null,
-      participated_before: data.participated_before,
-      edition: JAM_CONFIG.edition,
-    })
-    .select("id")
-    .single();
+    // Returning participant: append current edition + last-write-wins profile update.
+    const nextEditions = [...editions, JAM_CONFIG.edition];
+    const { error: updateErr } = await supabase
+      .from("participants")
+      .update({ ...profileFields, editions: nextEditions })
+      .eq("id", existing.id);
 
-  if (error || !inserted) {
-    console.error("register insert failed", error);
-    return NextResponse.json({ code: "err_save_failed" }, { status: 500 });
+    if (updateErr) {
+      console.error("register update failed", updateErr);
+      return NextResponse.json({ code: "err_save_failed" }, { status: 500 });
+    }
+    participantId = existing.id as string;
+  } else {
+    // First-time registration.
+    const { data: inserted, error: insertErr } = await supabase
+      .from("participants")
+      .insert({
+        ...profileFields,
+        email: data.email,
+        editions: [JAM_CONFIG.edition],
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !inserted) {
+      console.error("register insert failed", insertErr);
+      return NextResponse.json({ code: "err_save_failed" }, { status: 500 });
+    }
+    participantId = inserted.id;
   }
 
   // Pre-create the Supabase auth user (already email-confirmed) so that subsequent
   // sign-in attempts via /suggest or /vote send the "Magic Link" email template
   // instead of the generic "Confirm Signup" template — and so that participants
   // who haven't registered can't request a sign-in link at all.
+  //
+  // Returning participants will already have an auth user; we tolerate the
+  // "already exists" error silently.
   try {
     const { error: authErr } = await supabase.auth.admin.createUser({
       email: data.email,
@@ -94,5 +122,5 @@ export async function POST(req: Request) {
     console.error("registration email failed", e);
   }
 
-  return NextResponse.json({ success: true, id: inserted.id });
+  return NextResponse.json({ success: true, id: participantId });
 }

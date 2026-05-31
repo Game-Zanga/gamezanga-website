@@ -94,6 +94,7 @@ type Participant = {
   skills: string[];
   skills_other: string | null;
   participated_before: boolean;
+  editions: number[];
   created_at: string;
 };
 
@@ -102,12 +103,15 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
   const [rows, setRows] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // "current" | "all" | "13" | "12" | ... — controls which editions are queried.
+  const [filter, setFilter] = useState<string>("current");
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      const res = await adminFetch("/api/admin/registrations", secret);
+      const params = filter === "current" ? "" : `?edition=${filter}`;
+      const res = await adminFetch(`/api/admin/registrations${params}`, secret);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed");
       setRows(data.participants);
@@ -121,7 +125,7 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [filter]);
 
   function exportCsv() {
     const headers = [
@@ -136,6 +140,7 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
       "skills",
       "skills_other",
       "participated_before",
+      "editions",
     ];
     const escape = (v: unknown) => {
       const s = v == null ? "" : Array.isArray(v) ? v.join("|") : String(v);
@@ -148,20 +153,35 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `gamezanga-registrations-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `gamezanga-registrations-${filter}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h2 className="text-xl font-bold">
           {tr("admin_registrations")} <span className="text-[color:var(--color-muted)] font-normal">({rows.length})</span>
         </h2>
-        <button onClick={exportCsv} className="btn btn-ghost text-sm">
-          {tr("admin_export_csv")}
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            className="select text-sm"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            dir="ltr"
+          >
+            <option value="current">Current edition</option>
+            <option value="all">All editions</option>
+            <option value="13">Edition 13</option>
+            <option value="12">Edition 12</option>
+            <option value="11">Edition 11</option>
+            <option value="10">Edition 10</option>
+          </select>
+          <button onClick={exportCsv} className="btn btn-ghost text-sm">
+            {tr("admin_export_csv")}
+          </button>
+        </div>
       </div>
       {loading ? (
         <div className="text-[color:var(--color-muted)]">…</div>
@@ -174,6 +194,7 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
               <tr>
                 <Th>{locale === "ar" ? "الاسم" : "Name"}</Th>
                 <Th>Email</Th>
+                <Th>{locale === "ar" ? "النسخ" : "Editions"}</Th>
                 <Th>{locale === "ar" ? "البلد" : "Country"}</Th>
                 <Th>{locale === "ar" ? "العمر" : "Age"}</Th>
                 <Th>{locale === "ar" ? "المهارات" : "Skills"}</Th>
@@ -187,6 +208,19 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
                   <Td>{r.full_name}</Td>
                   <Td>
                     <span dir="ltr">{r.email}</span>
+                  </Td>
+                  <Td>
+                    <div className="flex flex-wrap gap-1">
+                      {(r.editions ?? []).map((ed) => (
+                        <span
+                          key={ed}
+                          className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono tabular-nums border border-[color:var(--color-accent)]/40 bg-[color:var(--color-accent)]/10 text-[color:var(--color-accent)]"
+                          dir="ltr"
+                        >
+                          {ed}
+                        </span>
+                      ))}
+                    </div>
                   </Td>
                   <Td>{r.country === "Other" ? r.country_other : r.country}</Td>
                   <Td>{r.age_group}</Td>
@@ -508,17 +542,38 @@ function BroadcastPanel({ secret }: { secret: string }) {
   const [subject, setSubject] = useState("");
   const [bodyAr, setBodyAr] = useState("");
   const [bodyEn, setBodyEn] = useState("");
+  // "current" | "all" | csv list of edition numbers, e.g. "13,14"
+  const [target, setTarget] = useState<string>("current");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!confirm("Send to ALL registered participants?")) return;
+    const targetLabel =
+      target === "current"
+        ? "Current edition (14)"
+        : target === "all"
+        ? "ALL participants ever registered"
+        : `Editions: ${target}`;
+    if (!confirm(`Send to: ${targetLabel}?`)) return;
+
     setBusy(true);
     setMsg("");
+
+    // Translate UI target → API body
+    let editionsPayload: number[] | "all" | undefined;
+    if (target === "all") editionsPayload = "all";
+    else if (target === "current") editionsPayload = undefined; // API defaults to current
+    else editionsPayload = target.split(",").map((s) => Number(s.trim())).filter(Number.isFinite);
+
     const res = await adminFetch("/api/admin/broadcast", secret, {
       method: "POST",
-      body: JSON.stringify({ subject, body_ar: bodyAr, body_en: bodyEn }),
+      body: JSON.stringify({
+        subject,
+        body_ar: bodyAr,
+        body_en: bodyEn,
+        ...(editionsPayload !== undefined ? { editions: editionsPayload } : {}),
+      }),
     });
     const data = await res.json();
     setMsg(res.ok ? `✓ sent ${data.sent}/${data.total} (failed: ${data.failed})` : data.message || "Failed");
@@ -529,6 +584,21 @@ function BroadcastPanel({ secret }: { secret: string }) {
     <div>
       <h2 className="text-xl font-bold mb-4">{tr("admin_broadcast")}</h2>
       <form onSubmit={submit} className="card-glow p-6 space-y-3 max-w-xl">
+        <label className="block">
+          <div className="text-sm text-[color:var(--color-muted)] mb-1">Target audience</div>
+          <select
+            className="select text-sm w-full"
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            dir="ltr"
+          >
+            <option value="current">Current edition only</option>
+            <option value="all">All participants ever (any edition)</option>
+            <option value="13">Edition 13 only</option>
+            <option value="12">Edition 12 only</option>
+            <option value="13,14">Editions 13 + 14</option>
+          </select>
+        </label>
         <input className="input" placeholder={tr("admin_subject")} value={subject} onChange={(e) => setSubject(e.target.value)} required />
         <textarea
           className="textarea h-32"

@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   if (!isAdminAuthorized(req)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-  let body: { subject?: string; body_ar?: string; body_en?: string };
+  let body: { subject?: string; body_ar?: string; body_en?: string; editions?: number[] | "all" };
   try {
     body = await req.json();
   } catch {
@@ -22,11 +22,19 @@ export async function POST(req: Request) {
   if (!subject || !body_ar) return NextResponse.json({ message: "subject + body_ar required" }, { status: 400 });
   if (!process.env.RESEND_API_KEY) return NextResponse.json({ message: "RESEND_API_KEY not set" }, { status: 500 });
 
+  // Targeting:
+  //   body.editions = "all"     → everyone ever registered (any edition)
+  //   body.editions = [13, 14]  → anyone whose editions array overlaps these (returning + current)
+  //   body.editions = undefined → defaults to current edition only
+  const target = body.editions ?? [JAM_CONFIG.edition];
+
   const svc = getServiceClient();
-  const { data: rows, error } = await svc
-    .from("participants")
-    .select("email")
-    .eq("edition", JAM_CONFIG.edition);
+  let query = svc.from("participants").select("email");
+  if (Array.isArray(target) && target.length > 0) {
+    // overlaps = at least one element of `editions` is in the target list (`&&` in PG).
+    query = query.overlaps("editions", target);
+  }
+  const { data: rows, error } = await query;
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 
   const emails = (rows ?? []).map((r) => r.email).filter(Boolean) as string[];
