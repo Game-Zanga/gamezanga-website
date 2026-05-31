@@ -24,11 +24,9 @@ export const t = {
   cta_view_rules: { ar: "اطلع على القوانين", en: "Read the Rules" },
   steps_heading: { ar: "كيف تشارك؟", en: "How to Participate" },
   step1_title: { ar: "سجّل", en: "Register" },
-  step1_body: { ar: "املأ نموذج التسجيل قبل بداية الزنقة.", en: "Fill out the registration form before the jam starts." },
   step2_title: { ar: "اقترح وصوّت", en: "Suggest & Vote" },
-  step2_body: { ar: "اقترح ثيمات وصوّت على المرشحين.", en: "Suggest themes and vote on the finalists." },
-  step3_title: { ar: "طوّر لعبة", en: "Build a Game" },
-  step3_body: { ar: "طوّر لعبتك خلال ٧٢ ساعة وارفعها على itch.io.", en: "Build your game in 72 hours and submit it on itch.io." },
+  step3_title: { ar: "سجّل في itch.io", en: "Register on itch.io" },
+  step4_title: { ar: "انضم للمجتمع", en: "Join the Community" },
 
   about_heading: { ar: "عن زنقة الألعاب", en: "About Game Zanga" },
   about_body: {
