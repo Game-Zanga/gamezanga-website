@@ -23,10 +23,16 @@ export function Navbar() {
       <nav className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-3 group" aria-label="Home">
           <div
-            className="w-9 h-9 rounded-lg grid place-items-center font-black text-white"
+            className="w-9 h-9 rounded-lg grid place-items-center overflow-hidden"
             style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))" }}
           >
-            {locale === "ar" ? "ز" : "GZ"}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/gz-squarelogo.png"
+              alt=""
+              aria-hidden="true"
+              className="w-7 h-7 object-contain"
+            />
           </div>
           <div className="leading-tight">
             <div className="font-bold">

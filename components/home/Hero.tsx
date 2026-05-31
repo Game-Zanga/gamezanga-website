@@ -17,16 +17,26 @@ export function Hero() {
             <span className="w-2 h-2 rounded-full bg-[color:var(--color-accent)] animate-pulse" />
             {tr("edition_label")} {JAM_CONFIG.edition}
           </div>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight">
+          <h1>
+            <span className="sr-only">{locale === "ar" ? JAM_CONFIG.name_ar : JAM_CONFIG.name_en}</span>
             <span
-              className="bg-clip-text text-transparent"
+              aria-hidden="true"
+              role="img"
+              aria-label={locale === "ar" ? JAM_CONFIG.name_ar : JAM_CONFIG.name_en}
+              className="block mx-auto w-full max-w-[280px] sm:max-w-[480px] md:max-w-[640px] lg:max-w-[900px]"
               style={{
-                backgroundImage:
-                  "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))",
+                aspectRatio: "11823 / 2418",
+                WebkitMaskImage: "url(/images/gz-logo.png)",
+                maskImage: "url(/images/gz-logo.png)",
+                WebkitMaskSize: "contain",
+                maskSize: "contain",
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+                WebkitMaskPosition: "center",
+                maskPosition: "center",
+                background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))",
               }}
-            >
-              {locale === "ar" ? JAM_CONFIG.name_ar : JAM_CONFIG.name_en}
-            </span>
+            />
           </h1>
           <p className="mt-4 text-lg md:text-xl text-[color:var(--color-muted)]">
             {locale === "ar" ? JAM_CONFIG.tagline_ar : JAM_CONFIG.tagline_en}
