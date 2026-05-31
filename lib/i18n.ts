@@ -64,6 +64,10 @@ export const t = {
   register_heading: { ar: "التسجيل في زنقة الألعاب", en: "Register for Game Zanga" },
   register_intro: { ar: "املأ النموذج أدناه. سنرسل تأكيداً على بريدك.", en: "Fill out the form below. A confirmation will be sent to your email." },
   register_closed: { ar: "التسجيل مغلق حالياً.", en: "Registration is currently closed." },
+  register_team_note: {
+    ar: "ملاحظة مهمة: إذا كان لديك فريق يجب على كل أعضاء الفريق التسجيل للمشاركة في الزنقة.",
+    en: "Important note: If you have a team, every team member must register individually to participate in the jam.",
+  },
   register_success: { ar: "تم التسجيل بنجاح! تحقق من بريدك للتأكيد.", en: "Registered successfully! Check your email for confirmation." },
   field_full_name: { ar: "الاسم الكامل", en: "Full Name" },
   field_full_name_hint: { ar: "يجب إدخال الاسم الحقيقي من مقطعين", en: "Real name, two parts (first + family)" },
@@ -115,6 +119,7 @@ export const t = {
     ar: "صوّت على كل ثيم في القائمة أدناه. يمكنك تغيير تصويتك في أي وقت خلال فترة التصويت.",
     en: "Vote on each theme below. You can change your vote any time during the voting window.",
   },
+  vote_not_started: { ar: "التصويت لم يبدأ للأن.", en: "Voting hasn't started yet." },
   vote_closed: { ar: "التصويت مغلق حالياً.", en: "Voting is currently closed." },
   vote_submitted: { ar: "تم تسجيل تصويتك.", en: "Your vote has been recorded." },
   vote_results: { ar: "النتائج الحالية", en: "Current Results" },
