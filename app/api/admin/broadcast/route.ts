@@ -29,15 +29,24 @@ export async function POST(req: Request) {
   const target: string[] | "all" = body.editions ?? [String(JAM_CONFIG.edition)];
 
   const svc = getServiceClient();
-  let query = svc.from("participants").select("email");
-  if (Array.isArray(target) && target.length > 0) {
-    // overlaps = at least one element of `editions` is in the target list (`&&` in PG).
-    query = query.overlaps("editions", target);
+  // Paginate around Supabase's default 1000-row cap so broadcasts to the full
+  // ~2k legacy list don't silently truncate.
+  const PAGE = 1000;
+  const allRows: { email: string }[] = [];
+  for (let from = 0; ; from += PAGE) {
+    let query = svc.from("participants").select("email").range(from, from + PAGE - 1);
+    if (Array.isArray(target) && target.length > 0) {
+      // overlaps = at least one element of `editions` is in the target list (`&&` in PG).
+      query = query.overlaps("editions", target);
+    }
+    const { data, error } = await query;
+    if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+    if (!data || data.length === 0) break;
+    allRows.push(...(data as { email: string }[]));
+    if (data.length < PAGE) break;
   }
-  const { data: rows, error } = await query;
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 
-  const emails = (rows ?? []).map((r) => r.email).filter(Boolean) as string[];
+  const emails = allRows.map((r) => r.email).filter(Boolean);
   const resend = getResend();
   let sent = 0;
   let failed = 0;
