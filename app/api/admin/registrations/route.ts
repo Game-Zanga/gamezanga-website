@@ -11,16 +11,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
   const svc = getServiceClient();
-  // Optional ?edition=N query param to filter; defaults to current edition.
+  // Optional ?edition=TAG query param to filter; defaults to current edition.
   // ?edition=all returns every participant ever registered.
+  // Tags are strings (e.g. "14", "13", "SE") since participants.editions is TEXT[].
   const url = new URL(req.url);
   const editionParam = url.searchParams.get("edition");
   let query = svc.from("participants").select("*").order("created_at", { ascending: false });
   if (editionParam !== "all") {
-    const editionNum = editionParam ? Number(editionParam) : JAM_CONFIG.edition;
-    if (Number.isFinite(editionNum)) {
-      query = query.contains("editions", [editionNum]);
-    }
+    const tag = editionParam?.trim() || String(JAM_CONFIG.edition);
+    query = query.contains("editions", [tag]);
   }
   const { data, error } = await query;
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });

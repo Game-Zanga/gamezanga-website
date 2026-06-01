@@ -94,7 +94,7 @@ type Participant = {
   skills: string[];
   skills_other: string | null;
   participated_before: boolean;
-  editions: number[];
+  editions: string[];
   created_at: string;
 };
 
@@ -174,6 +174,7 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
             <option value="current">Current edition</option>
             <option value="all">All editions</option>
             <option value="13">Edition 13</option>
+            <option value="SE">Special Edition</option>
             <option value="12">Edition 12</option>
             <option value="11">Edition 11</option>
             <option value="10">Edition 10</option>
@@ -542,7 +543,7 @@ function BroadcastPanel({ secret }: { secret: string }) {
   const [subject, setSubject] = useState("");
   const [bodyAr, setBodyAr] = useState("");
   const [bodyEn, setBodyEn] = useState("");
-  // "current" | "all" | csv list of edition numbers, e.g. "13,14"
+  // "current" | "all" | csv list of edition tags, e.g. "13,14" or "SE,13"
   const [target, setTarget] = useState<string>("current");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -560,11 +561,11 @@ function BroadcastPanel({ secret }: { secret: string }) {
     setBusy(true);
     setMsg("");
 
-    // Translate UI target → API body
-    let editionsPayload: number[] | "all" | undefined;
+    // Translate UI target → API body (tags are strings since editions is TEXT[])
+    let editionsPayload: string[] | "all" | undefined;
     if (target === "all") editionsPayload = "all";
     else if (target === "current") editionsPayload = undefined; // API defaults to current
-    else editionsPayload = target.split(",").map((s) => Number(s.trim())).filter(Number.isFinite);
+    else editionsPayload = target.split(",").map((s) => s.trim()).filter(Boolean);
 
     const res = await adminFetch("/api/admin/broadcast", secret, {
       method: "POST",
@@ -595,7 +596,9 @@ function BroadcastPanel({ secret }: { secret: string }) {
             <option value="current">Current edition only</option>
             <option value="all">All participants ever (any edition)</option>
             <option value="13">Edition 13 only</option>
+            <option value="SE">Special Edition only</option>
             <option value="12">Edition 12 only</option>
+            <option value="13,SE,12">Editions 13 + SE + 12 (all past)</option>
             <option value="13,14">Editions 13 + 14</option>
           </select>
         </label>

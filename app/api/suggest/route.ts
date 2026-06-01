@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     .from("participants")
     .select("id")
     .eq("email", user.email.toLowerCase())
-    .contains("editions", [JAM_CONFIG.edition])
+    .contains("editions", [String(JAM_CONFIG.edition)])
     .maybeSingle();
 
   if (!participant) {

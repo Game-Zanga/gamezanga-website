@@ -46,9 +46,11 @@ export async function POST(req: Request) {
 
   let participantId: string;
 
+  const currentTag = String(JAM_CONFIG.edition);
+
   if (existing) {
-    const editions = (existing.editions as number[]) ?? [];
-    if (editions.includes(JAM_CONFIG.edition)) {
+    const editions = (existing.editions as string[]) ?? [];
+    if (editions.includes(currentTag)) {
       // Already registered for THIS edition — reject duplicates.
       return NextResponse.json(
         { errors: [{ field: "email", code: "err_email_already_registered" }] },
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
     }
 
     // Returning participant: append current edition + last-write-wins profile update.
-    const nextEditions = [...editions, JAM_CONFIG.edition];
+    const nextEditions = [...editions, currentTag];
     const { error: updateErr } = await supabase
       .from("participants")
       .update({ ...profileFields, editions: nextEditions })
@@ -75,7 +77,7 @@ export async function POST(req: Request) {
       .insert({
         ...profileFields,
         email: data.email,
-        editions: [JAM_CONFIG.edition],
+        editions: [currentTag],
       })
       .select("id")
       .single();

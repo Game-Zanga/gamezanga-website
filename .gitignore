@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# legacy registration CSVs — contain personal data, never commit
+/scripts/legacy-data/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
