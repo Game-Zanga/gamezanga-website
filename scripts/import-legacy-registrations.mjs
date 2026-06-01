@@ -97,6 +97,36 @@ function normalize(v) {
   return (v ?? "").toString().trim();
 }
 
+// Common email-domain typos seen in Google Form submissions. Applied before the
+// DB lookup so a CSV row with "@gmai.com" merges into the canonical "@gmail.com"
+// participant instead of creating an orphan duplicate.
+const EMAIL_DOMAIN_FIXES = {
+  "gmai.com":    "gmail.com",
+  "gmial.com":   "gmail.com",
+  "gnail.com":   "gmail.com",
+  "gmaill.com":  "gmail.com",
+  "gmali.com":   "gmail.com",
+  "gmsil.com":   "gmail.com",
+  "yaho.com":    "yahoo.com",
+  "yahooo.com":  "yahoo.com",
+  "yhaoo.com":   "yahoo.com",
+  "hotmial.com": "hotmail.com",
+  "hotmal.com":  "hotmail.com",
+  "hormail.com": "hotmail.com",
+  "outloo.com":  "outlook.com",
+  "outlokk.com": "outlook.com",
+};
+
+function normalizeEmail(raw) {
+  const lower = (raw ?? "").toString().trim().toLowerCase();
+  if (!lower.includes("@")) return lower;
+  const at = lower.lastIndexOf("@");
+  const local = lower.slice(0, at);
+  const domain = lower.slice(at + 1);
+  const fixed = EMAIL_DOMAIN_FIXES[domain];
+  return fixed ? `${local}@${fixed}` : lower;
+}
+
 function parseGender(v) {
   const s = normalize(v);
   // Check female FIRST — "Female" contains the substring "male", so naïve
@@ -225,14 +255,21 @@ let inserted = 0;
 let appended = 0;
 let alreadyTagged = 0;
 let skipped = 0;
+let emailsFixed = 0;
 const skipReasons = [];
+const emailFixesSample = [];
 
 for (let idx = 0; idx < dataRows.length; idx++) {
   const r = dataRows[idx];
   const lineNum = idx + 2; // 1-based + header row
 
   const full_name = normalize(r[col.name]);
-  const email = normalize(r[col.email]).toLowerCase();
+  const rawEmail = normalize(r[col.email]).toLowerCase();
+  const email = normalizeEmail(rawEmail);
+  if (rawEmail !== email) {
+    emailsFixed++;
+    if (emailFixesSample.length < 10) emailFixesSample.push({ from: rawEmail, to: email });
+  }
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     skipped++;
@@ -337,7 +374,16 @@ console.log(`  ${dryRun ? "Would insert new rows:           " : "Inserted new ro
 console.log(`  ${dryRun ? "Would append to existing:        " : "Appended edition to existing:    "} ${appended}`);
 console.log(`  Already had edition "${edition}" (no-op):  ${alreadyTagged}`);
 console.log(`  Skipped (validation/db error):    ${skipped}`);
+console.log(`  Emails auto-corrected (typo fix): ${emailsFixed}`);
 console.log(`  Total processed:                  ${dataRows.length}`);
+
+if (emailFixesSample.length > 0) {
+  console.log("\n──────────────── Sample email fixes ────────────────");
+  for (const f of emailFixesSample) console.log(`  ${f.from}  →  ${f.to}`);
+  if (emailsFixed > emailFixesSample.length) {
+    console.log(`  … and ${emailsFixed - emailFixesSample.length} more`);
+  }
+}
 
 if (skipReasons.length > 0) {
   console.log("\n──────────────── Skipped rows (first 30) ────────────────");
