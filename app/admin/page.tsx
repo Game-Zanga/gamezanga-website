@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/components/LocaleProvider";
+
+const PAGE_SIZE = 50;
 
 const STORAGE_KEY = "gz_admin_secret";
 
@@ -103,8 +105,11 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
   const [rows, setRows] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  // "current" | "all" | "13" | "12" | ... — controls which editions are queried.
+  // Edition filter is server-side (re-queries on change).
   const [filter, setFilter] = useState<string>("current");
+  // Client-side toggles + pagination on top of the fetched set.
+  const [multiOnly, setMultiOnly] = useState(false);
+  const [page, setPage] = useState(0);
 
   async function load() {
     setLoading(true);
@@ -127,6 +132,20 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
+  // Reset to page 0 whenever the filter set changes shape.
+  useEffect(() => {
+    setPage(0);
+  }, [filter, multiOnly]);
+
+  // Apply client-side filters, then paginate.
+  const filteredRows = useMemo(
+    () => (multiOnly ? rows.filter((r) => (r.editions ?? []).length > 1) : rows),
+    [rows, multiOnly]
+  );
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedRows = filteredRows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
   function exportCsv() {
     const headers = [
       "created_at",
@@ -146,25 +165,41 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
       const s = v == null ? "" : Array.isArray(v) ? v.join("|") : String(v);
       return `"${s.replace(/"/g, '""')}"`;
     };
+    // Export reflects the currently-active filters (edition + multi-edition toggle).
     const lines = [headers.join(",")].concat(
-      rows.map((r) => headers.map((h) => escape((r as unknown as Record<string, unknown>)[h])).join(","))
+      filteredRows.map((r) => headers.map((h) => escape((r as unknown as Record<string, unknown>)[h])).join(","))
     );
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `gamezanga-registrations-${filter}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const slug = multiOnly ? `${filter}-multi` : filter;
+    a.download = `gamezanga-registrations-${slug}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
+
+  const countLabel =
+    filteredRows.length === rows.length
+      ? `${rows.length}`
+      : `${filteredRows.length} / ${rows.length}`;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h2 className="text-xl font-bold">
-          {tr("admin_registrations")} <span className="text-[color:var(--color-muted)] font-normal">({rows.length})</span>
+          {tr("admin_registrations")}{" "}
+          <span className="text-[color:var(--color-muted)] font-normal">({countLabel})</span>
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none px-3 py-1.5 rounded-md border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface)]">
+            <input
+              type="checkbox"
+              checked={multiOnly}
+              onChange={(e) => setMultiOnly(e.target.checked)}
+            />
+            {locale === "ar" ? "أكثر من نسخة" : "Multi-edition only"}
+          </label>
           <select
             className="select text-sm"
             value={filter}
@@ -204,7 +239,7 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {pagedRows.map((r) => (
                 <tr key={r.id} className="border-t border-[color:var(--color-border)]">
                   <Td>{r.full_name}</Td>
                   <Td>
@@ -230,8 +265,55 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
                   <Td>{new Date(r.created_at).toLocaleDateString()}</Td>
                 </tr>
               ))}
+              {pagedRows.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-3 py-6 text-center text-[color:var(--color-muted)]">
+                    {locale === "ar" ? "لا نتائج" : "No results"}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
+          {filteredRows.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between gap-3 px-3 py-3 border-t border-[color:var(--color-border)] text-sm" dir="ltr">
+              <div className="text-[color:var(--color-muted)]">
+                {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filteredRows.length)} of {filteredRows.length}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(0)}
+                  disabled={safePage === 0}
+                  className="btn btn-ghost text-xs disabled:opacity-40"
+                >
+                  ⏮
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={safePage === 0}
+                  className="btn btn-ghost text-xs disabled:opacity-40"
+                >
+                  ‹ Prev
+                </button>
+                <span className="text-[color:var(--color-muted)] tabular-nums px-2">
+                  {safePage + 1} / {pageCount}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  disabled={safePage >= pageCount - 1}
+                  className="btn btn-ghost text-xs disabled:opacity-40"
+                >
+                  Next ›
+                </button>
+                <button
+                  onClick={() => setPage(pageCount - 1)}
+                  disabled={safePage >= pageCount - 1}
+                  className="btn btn-ghost text-xs disabled:opacity-40"
+                >
+                  ⏭
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
