@@ -206,6 +206,7 @@ export const t = {
   // Auth
   err_send_link_failed:         { ar: "تعذر إرسال رابط الدخول", en: "Could not send the sign-in link" },
   err_not_registered_signin:    { ar: "هذا البريد ليس مسجلاً في الزنقة. سجّل أولاً من صفحة التسجيل.", en: "This email is not registered for the jam. Please register first." },
+  err_rate_limited:             { ar: "حاولت كثيراً بسرعة. الرجاء الانتظار دقيقة ثم إعادة المحاولة.", en: "Too many attempts. Please wait a minute and try again." },
 } as const;
 
 export type TranslationKey = keyof typeof t;

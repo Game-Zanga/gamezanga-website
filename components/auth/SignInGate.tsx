@@ -57,8 +57,11 @@ export function SignInGate({
         // Supabase returns "Signups not allowed for otp" when the email has no auth user.
         // That means the participant hasn't registered yet.
         const msg = error.message || "";
+        const status = (error as { status?: number }).status;
         if (/signups? not allowed|not\s*allowed for otp|user not found/i.test(msg)) {
           setError(trCode("err_not_registered_signin", locale));
+        } else if (status === 429 || /rate.?limit|too many/i.test(msg)) {
+          setError(trCode("err_rate_limited", locale));
         } else {
           setError(trCode("err_send_link_failed", locale));
         }
