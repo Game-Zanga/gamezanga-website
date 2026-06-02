@@ -3,12 +3,14 @@ import { isAdminAuthorized } from "@/lib/admin-auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { JAM_CONFIG } from "@/lib/jam-config";
 import { EMAIL_FROM, getResend } from "@/lib/resend";
+import { isSameOrigin } from "@/lib/csrf";
 import BroadcastGeneral from "@/emails/BroadcastGeneral";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  if (!isAdminAuthorized(req)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized())) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!isSameOrigin(req)) return NextResponse.json({ message: "Invalid origin" }, { status: 403 });
 
   let body: { subject?: string; body_ar?: string; body_en?: string; editions?: string[] | "all" };
   try {

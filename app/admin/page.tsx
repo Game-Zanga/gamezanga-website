@@ -1,37 +1,71 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale } from "@/components/LocaleProvider";
 
 const PAGE_SIZE = 50;
 
-const STORAGE_KEY = "gz_admin_secret";
+type AuthState = "checking" | "signed_in" | "signed_out";
 
 export default function AdminPage() {
   const { tr, locale } = useLocale();
-  const [secret, setSecret] = useState<string | null>(null);
+  const [auth, setAuth] = useState<AuthState>("checking");
   const [input, setInput] = useState("");
-  const [hydrated, setHydrated] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
+  // On mount: ask the server whether the HTTP-only cookie is valid. We can't
+  // read the cookie from JS so a check endpoint is required.
   useEffect(() => {
-    setSecret(sessionStorage.getItem(STORAGE_KEY));
-    setHydrated(true);
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/check", { cache: "no-store" });
+        setAuth(res.ok ? "signed_in" : "signed_out");
+      } catch {
+        setAuth("signed_out");
+      }
+    })();
   }, []);
 
-  if (!hydrated) return null;
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoginError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: input }),
+      });
+      if (!res.ok) {
+        if (res.status === 429) setLoginError(locale === "ar" ? "حاولت كثيراً. الرجاء الانتظار" : "Too many attempts. Wait a moment.");
+        else setLoginError(locale === "ar" ? "كلمة المرور غير صحيحة" : "Incorrect password");
+        return;
+      }
+      setInput("");
+      setAuth("signed_in");
+    } catch {
+      setLoginError(locale === "ar" ? "خطأ في الشبكة" : "Network error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-  if (!secret) {
+  async function handleLogout() {
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+    } finally {
+      setAuth("signed_out");
+    }
+  }
+
+  if (auth === "checking") return null;
+
+  if (auth === "signed_out") {
     return (
       <section className="max-w-md mx-auto px-4 py-16">
         <h1 className="text-2xl font-bold mb-6">{tr("admin_heading")}</h1>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            sessionStorage.setItem(STORAGE_KEY, input);
-            setSecret(input);
-          }}
-          className="card-glow p-6 space-y-3"
-        >
+        <form onSubmit={handleLogin} className="card-glow p-6 space-y-3">
           <label className="label">{tr("admin_login_prompt")}</label>
           <input
             type="password"
@@ -40,9 +74,11 @@ export default function AdminPage() {
             onChange={(e) => setInput(e.target.value)}
             required
             dir="ltr"
+            autoComplete="current-password"
           />
-          <button className="btn btn-primary w-full" type="submit">
-            {tr("admin_login")}
+          {loginError && <div className="error">{loginError}</div>}
+          <button className="btn btn-primary w-full" type="submit" disabled={submitting}>
+            {submitting ? "…" : tr("admin_login")}
           </button>
         </form>
       </section>
@@ -53,32 +89,28 @@ export default function AdminPage() {
     <section className="max-w-6xl mx-auto px-4 py-10 space-y-12">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl md:text-3xl font-bold">{tr("admin_heading")}</h1>
-        <button
-          onClick={() => {
-            sessionStorage.removeItem(STORAGE_KEY);
-            setSecret(null);
-          }}
-          className="btn btn-ghost"
-        >
+        <button onClick={handleLogout} className="btn btn-ghost">
           {tr("admin_logout")}
         </button>
       </div>
 
-      <RegistrationsPanel secret={secret} locale={locale} />
-      <SuggestionsPanel secret={secret} locale={locale} />
-      <LiveResultsPanel secret={secret} locale={locale} />
-      <SetThemePanel secret={secret} />
-      <BroadcastPanel secret={secret} />
+      <RegistrationsPanel locale={locale} />
+      <SuggestionsPanel locale={locale} />
+      <LiveResultsPanel locale={locale} />
+      <SetThemePanel />
+      <BroadcastPanel />
     </section>
   );
 }
 
-function adminFetch(url: string, secret: string, init?: RequestInit) {
+// All admin endpoints authenticate via the HTTP-only `gz_admin` cookie set by
+// /api/admin/login. The cookie is sent automatically by the browser; no
+// JS-visible secret to leak via XSS.
+function adminFetch(url: string, init?: RequestInit) {
   return fetch(url, {
     ...init,
     headers: {
       ...(init?.headers ?? {}),
-      "x-admin-secret": secret,
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
     },
   });
@@ -100,14 +132,19 @@ type Participant = {
   created_at: string;
 };
 
-function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" | "en" }) {
+function RegistrationsPanel({ locale }: { locale: "ar" | "en" }) {
   const { tr } = useLocale();
+  // Visible page of rows (length ≤ PAGE_SIZE in normal mode).
   const [rows, setRows] = useState<Participant[]>([]);
+  // Total count of rows matching the current filter — comes from server.
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  // Edition filter is server-side (re-queries on change).
+  // Edition filter (server-side).
   const [filter, setFilter] = useState<string>("current");
-  // Client-side toggles + pagination on top of the fetched set.
+  // Multi-edition filter — pulled client-side over the entire matching set
+  // (small, ~260 rows max), since the Supabase query builder can't easily
+  // express "array length > 1".
   const [multiOnly, setMultiOnly] = useState(false);
   const [page, setPage] = useState(0);
 
@@ -115,11 +152,24 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
     setLoading(true);
     setError("");
     try {
-      const params = filter === "current" ? "" : `?edition=${filter}`;
-      const res = await adminFetch(`/api/admin/registrations${params}`, secret);
+      const editionQS = filter === "current" ? "" : `edition=${encodeURIComponent(filter)}`;
+      const url = multiOnly
+        // Multi-edition: fetch everything for current edition filter and filter client-side.
+        ? `/api/admin/registrations?${editionQS}&all=1`
+        // Normal: server-side pagination.
+        : `/api/admin/registrations?${editionQS}&page=${page}&limit=${PAGE_SIZE}`;
+      const res = await adminFetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed");
-      setRows(data.participants);
+
+      if (multiOnly) {
+        const allRows = (data.participants as Participant[]).filter((r) => (r.editions ?? []).length > 1);
+        setTotal(allRows.length);
+        setRows(allRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE));
+      } else {
+        setRows(data.participants);
+        setTotal(data.total ?? 0);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -130,59 +180,63 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [filter, page, multiOnly]);
 
   // Reset to page 0 whenever the filter set changes shape.
   useEffect(() => {
     setPage(0);
   }, [filter, multiOnly]);
 
-  // Apply client-side filters, then paginate.
-  const filteredRows = useMemo(
-    () => (multiOnly ? rows.filter((r) => (r.editions ?? []).length > 1) : rows),
-    [rows, multiOnly]
-  );
-  const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
-  const pagedRows = filteredRows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
-  function exportCsv() {
-    const headers = [
-      "created_at",
-      "full_name",
-      "email",
-      "mobile",
-      "gender",
-      "age_group",
-      "country",
-      "country_other",
-      "skills",
-      "skills_other",
-      "participated_before",
-      "editions",
-    ];
-    const escape = (v: unknown) => {
-      const s = v == null ? "" : Array.isArray(v) ? v.join("|") : String(v);
-      return `"${s.replace(/"/g, '""')}"`;
-    };
-    // Export reflects the currently-active filters (edition + multi-edition toggle).
-    const lines = [headers.join(",")].concat(
-      filteredRows.map((r) => headers.map((h) => escape((r as unknown as Record<string, unknown>)[h])).join(","))
-    );
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const slug = multiOnly ? `${filter}-multi` : filter;
-    a.download = `gamezanga-registrations-${slug}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function exportCsv() {
+    // CSV export pulls the full filtered set via ?all=1 — bypassing pagination
+    // so the file isn't just the current page.
+    try {
+      const editionQS = filter === "current" ? "" : `edition=${encodeURIComponent(filter)}`;
+      const res = await adminFetch(`/api/admin/registrations?${editionQS}&all=1`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed");
+      const allRows: Participant[] = multiOnly
+        ? (data.participants as Participant[]).filter((r) => (r.editions ?? []).length > 1)
+        : data.participants;
+
+      const headers = [
+        "created_at",
+        "full_name",
+        "email",
+        "mobile",
+        "gender",
+        "age_group",
+        "country",
+        "country_other",
+        "skills",
+        "skills_other",
+        "participated_before",
+        "editions",
+      ];
+      const escape = (v: unknown) => {
+        const s = v == null ? "" : Array.isArray(v) ? v.join("|") : String(v);
+        return `"${s.replace(/"/g, '""')}"`;
+      };
+      const lines = [headers.join(",")].concat(
+        allRows.map((r) => headers.map((h) => escape((r as unknown as Record<string, unknown>)[h])).join(","))
+      );
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const slug = multiOnly ? `${filter}-multi` : filter;
+      a.download = `gamezanga-registrations-${slug}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "CSV export failed");
+    }
   }
 
-  const countLabel =
-    filteredRows.length === rows.length
-      ? `${rows.length}`
-      : `${filteredRows.length} / ${rows.length}`;
+  const countLabel = `${total}`;
 
   return (
     <div>
@@ -239,7 +293,7 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
               </tr>
             </thead>
             <tbody>
-              {pagedRows.map((r) => (
+              {rows.map((r) => (
                 <tr key={r.id} className="border-t border-[color:var(--color-border)]">
                   <Td>{r.full_name}</Td>
                   <Td>
@@ -265,7 +319,7 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
                   <Td>{new Date(r.created_at).toLocaleDateString()}</Td>
                 </tr>
               ))}
-              {pagedRows.length === 0 && (
+              {rows.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-3 py-6 text-center text-[color:var(--color-muted)]">
                     {locale === "ar" ? "لا نتائج" : "No results"}
@@ -274,10 +328,10 @@ function RegistrationsPanel({ secret, locale }: { secret: string; locale: "ar" |
               )}
             </tbody>
           </table>
-          {filteredRows.length > PAGE_SIZE && (
+          {total > PAGE_SIZE && (
             <div className="flex items-center justify-between gap-3 px-3 py-3 border-t border-[color:var(--color-border)] text-sm" dir="ltr">
               <div className="text-[color:var(--color-muted)]">
-                {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filteredRows.length)} of {filteredRows.length}
+                {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, total)} of {total}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -328,13 +382,13 @@ type Suggestion = {
   created_at: string;
 };
 
-function SuggestionsPanel({ secret, locale }: { secret: string; locale: "ar" | "en" }) {
+function SuggestionsPanel({ locale }: { locale: "ar" | "en" }) {
   const { tr } = useLocale();
   const [rows, setRows] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const res = await adminFetch("/api/admin/suggestions", secret);
+    const res = await adminFetch("/api/admin/suggestions");
     const data = await res.json();
     if (res.ok) setRows(data.suggestions);
     setLoading(false);
@@ -346,7 +400,7 @@ function SuggestionsPanel({ secret, locale }: { secret: string; locale: "ar" | "
   }, []);
 
   async function setApproval(id: string, approved: boolean | null) {
-    await adminFetch("/api/admin/suggestions", secret, {
+    await adminFetch("/api/admin/suggestions", {
       method: "POST",
       body: JSON.stringify({ id, approved }),
     });
@@ -411,7 +465,7 @@ type Result = {
   voters: number;
 };
 
-function LiveResultsPanel({ secret, locale }: { secret: string; locale: "ar" | "en" }) {
+function LiveResultsPanel({ locale }: { locale: "ar" | "en" }) {
   const { tr } = useLocale();
   const [rows, setRows] = useState<Result[]>([]);
   const [distinctVoters, setDistinctVoters] = useState(0);
@@ -422,7 +476,7 @@ function LiveResultsPanel({ secret, locale }: { secret: string; locale: "ar" | "
   async function load() {
     setError("");
     try {
-      const res = await adminFetch("/api/admin/results", secret);
+      const res = await adminFetch("/api/admin/results");
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed");
       setRows(data.results);
@@ -444,7 +498,7 @@ function LiveResultsPanel({ secret, locale }: { secret: string; locale: "ar" | "
     if (!confirm(`${tr("admin_set_as_winner")}: ${label}?`)) return;
     setSettingWinner(r.id);
     try {
-      const res = await adminFetch("/api/admin/set-theme", secret, {
+      const res = await adminFetch("/api/admin/set-theme", {
         method: "POST",
         body: JSON.stringify({ theme_ar: r.theme_ar, theme_en: r.theme_en ?? "" }),
       });
@@ -585,7 +639,7 @@ function LiveResultsPanel({ secret, locale }: { secret: string; locale: "ar" | "
   );
 }
 
-function SetThemePanel({ secret }: { secret: string }) {
+function SetThemePanel() {
   const { tr } = useLocale();
   const [ar, setAr] = useState("");
   const [en, setEn] = useState("");
@@ -596,7 +650,7 @@ function SetThemePanel({ secret }: { secret: string }) {
     e.preventDefault();
     setBusy(true);
     setMsg("");
-    const res = await adminFetch("/api/admin/set-theme", secret, {
+    const res = await adminFetch("/api/admin/set-theme", {
       method: "POST",
       body: JSON.stringify({ theme_ar: ar, theme_en: en }),
     });
@@ -620,7 +674,7 @@ function SetThemePanel({ secret }: { secret: string }) {
   );
 }
 
-function BroadcastPanel({ secret }: { secret: string }) {
+function BroadcastPanel() {
   const { tr } = useLocale();
   const [subject, setSubject] = useState("");
   const [bodyAr, setBodyAr] = useState("");
@@ -649,7 +703,7 @@ function BroadcastPanel({ secret }: { secret: string }) {
     else if (target === "current") editionsPayload = undefined; // API defaults to current
     else editionsPayload = target.split(",").map((s) => s.trim()).filter(Boolean);
 
-    const res = await adminFetch("/api/admin/broadcast", secret, {
+    const res = await adminFetch("/api/admin/broadcast", {
       method: "POST",
       body: JSON.stringify({
         subject,

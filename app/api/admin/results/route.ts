@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 // Admin-only view of live voting results. Mirrors the SQL in CLAUDE.md but
 // served via an authenticated endpoint so the admin panel can poll it without
 // leaving the page.
-export async function GET(req: Request) {
-  if (!isAdminAuthorized(req)) {
+export async function GET() {
+  if (!(await isAdminAuthorized())) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 

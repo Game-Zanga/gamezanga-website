@@ -4,11 +4,25 @@ import { isRegistrationOpen } from "@/lib/phase-utils";
 import { validateRegister } from "@/lib/validation";
 import { JAM_CONFIG } from "@/lib/jam-config";
 import { getResend, EMAIL_FROM } from "@/lib/resend";
+import { isSameOrigin } from "@/lib/csrf";
+import { checkRateLimit } from "@/lib/ratelimit";
 import RegistrationConfirmation from "@/emails/RegistrationConfirmation";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ code: "err_bad_origin" }, { status: 403 });
+  }
+  // Rate limit by IP: 10 attempts per 10 minutes. Tightens on mass-spam bots
+  // without inconveniencing real participants (most register once).
+  const rl = await checkRateLimit(req, { bucket: "register", limit: 10, windowSeconds: 600 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { code: "err_rate_limited" },
+      { status: 429, headers: rl.retryAfter ? { "Retry-After": String(rl.retryAfter) } : {} }
+    );
+  }
   if (!isRegistrationOpen()) {
     return NextResponse.json({ code: "err_registration_closed" }, { status: 403 });
   }

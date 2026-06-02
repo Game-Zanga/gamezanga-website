@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { isAdminAuthorized } from "@/lib/admin-auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { JAM_CONFIG } from "@/lib/jam-config";
+import { isSameOrigin } from "@/lib/csrf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  if (!isAdminAuthorized(req)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+export async function GET() {
+  if (!(await isAdminAuthorized())) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   const svc = getServiceClient();
   const { data, error } = await svc
     .from("theme_suggestions")
@@ -19,7 +20,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!isAdminAuthorized(req)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminAuthorized())) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!isSameOrigin(req)) return NextResponse.json({ message: "Invalid origin" }, { status: 403 });
   let body: { id?: string; approved?: boolean | null };
   try {
     body = await req.json();

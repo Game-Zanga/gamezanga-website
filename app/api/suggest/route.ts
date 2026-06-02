@@ -2,10 +2,24 @@ import { NextResponse } from "next/server";
 import { getServerClient, getServiceClient } from "@/lib/supabase-server";
 import { isSuggestionOpen } from "@/lib/phase-utils";
 import { JAM_CONFIG } from "@/lib/jam-config";
+import { isSameOrigin } from "@/lib/csrf";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ code: "err_bad_origin" }, { status: 403 });
+  }
+  // 20 suggestions per 10 min — generous, since max_suggestions_per_user=3 caps
+  // a single participant. Mostly bot-spam protection.
+  const rl = await checkRateLimit(req, { bucket: "suggest", limit: 20, windowSeconds: 600 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { code: "err_rate_limited" },
+      { status: 429, headers: rl.retryAfter ? { "Retry-After": String(rl.retryAfter) } : {} }
+    );
+  }
   if (!isSuggestionOpen()) {
     return NextResponse.json({ code: "err_suggestions_closed" }, { status: 403 });
   }

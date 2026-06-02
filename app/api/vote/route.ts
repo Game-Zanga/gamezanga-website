@@ -2,11 +2,25 @@ import { NextResponse } from "next/server";
 import { getServerClient, getServiceClient } from "@/lib/supabase-server";
 import { isVotingOpen } from "@/lib/phase-utils";
 import { JAM_CONFIG } from "@/lib/jam-config";
+import { isSameOrigin } from "@/lib/csrf";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
 // POST: upsert a rating of -1 | 0 | 1 for a given theme. Replaces any existing rating.
 export async function POST(req: Request) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ code: "err_bad_origin" }, { status: 403 });
+  }
+  // 60 votes per minute — generous for a user rapidly rating themes one after
+  // another (10 themes × +1/0/-1 changes), but blocks runaway scripts.
+  const rl = await checkRateLimit(req, { bucket: "vote", limit: 60, windowSeconds: 60 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { code: "err_rate_limited" },
+      { status: 429, headers: rl.retryAfter ? { "Retry-After": String(rl.retryAfter) } : {} }
+    );
+  }
   if (!isVotingOpen()) {
     return NextResponse.json({ code: "err_voting_closed" }, { status: 403 });
   }
