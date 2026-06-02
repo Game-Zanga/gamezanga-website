@@ -58,11 +58,19 @@ export async function POST(req: Request) {
       );
     }
 
-    // Returning participant: append current edition + last-write-wins profile update.
+    // Returning participant: append current edition ONLY.
+    //
+    // SECURITY: we deliberately do NOT update profile fields here. Anyone who
+    // knows a participant's email (e.g. from a leaked legacy CSV) could
+    // otherwise hijack their identity by submitting the form with the victim's
+    // email + bogus data, overwriting name/mobile/country/skills.
+    //
+    // If a returning participant needs to update their info, they should email
+    // the organizer — or we can add an authenticated profile-edit flow later.
     const nextEditions = [...editions, currentTag];
     const { error: updateErr } = await supabase
       .from("participants")
-      .update({ ...profileFields, editions: nextEditions })
+      .update({ editions: nextEditions })
       .eq("id", existing.id);
 
     if (updateErr) {

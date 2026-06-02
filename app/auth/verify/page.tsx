@@ -12,7 +12,13 @@ function VerifyInner() {
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    const next = params.get("next") || "/";
+    // SECURITY: validate `next` is a same-origin relative path. Without this,
+    // an attacker could craft `/auth/verify?next=https://evil.com` and use a
+    // legitimate-looking gamezanga.net link to redirect users to a phishing
+    // site after they authenticate.
+    const rawNext = params.get("next") || "/";
+    const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+
     const supabase = getBrowserClient();
 
     // Supabase v2 magic-link returns to the app with a #access_token=...&type=magiclink hash;
