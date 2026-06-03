@@ -4,6 +4,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { JAM_CONFIG } from "@/lib/jam-config";
 import { EMAIL_FROM, getResend } from "@/lib/resend";
 import { isSameOrigin } from "@/lib/csrf";
+import { dbErrorResponse } from "@/lib/api-errors";
 import BroadcastGeneral from "@/emails/BroadcastGeneral";
 
 export const runtime = "nodejs";
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
       query = query.overlaps("editions", target);
     }
     const { data, error } = await query;
-    if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+    if (error) return dbErrorResponse("admin/broadcast", error);
     if (!data || data.length === 0) break;
     allRows.push(...(data as { email: string }[]));
     if (data.length < PAGE) break;

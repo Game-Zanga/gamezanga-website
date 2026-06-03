@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminAuthorized } from "@/lib/admin-auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { JAM_CONFIG } from "@/lib/jam-config";
+import { dbErrorResponse } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export async function GET(req: Request) {
     const from = page * limit;
     const to = from + limit - 1;
     const { data, error, count } = await buildQuery([from, to]);
-    if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+    if (error) return dbErrorResponse("admin/registrations", error);
     return NextResponse.json({
       participants: data ?? [],
       total: count ?? 0,
@@ -59,7 +60,7 @@ export async function GET(req: Request) {
   let total = 0;
   for (let from = 0; ; from += SUPA_PAGE) {
     const { data, error, count } = await buildQuery([from, from + SUPA_PAGE - 1]);
-    if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+    if (error) return dbErrorResponse("admin/registrations", error);
     if (count != null && total === 0) total = count;
     if (!data || data.length === 0) break;
     all.push(...data);

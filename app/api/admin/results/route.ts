@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminAuthorized } from "@/lib/admin-auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { JAM_CONFIG } from "@/lib/jam-config";
+import { dbErrorResponse } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,13 +22,13 @@ export async function GET() {
     .select("id, theme_ar, theme_en, approved")
     .eq("edition", JAM_CONFIG.edition)
     .eq("approved", true);
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) return dbErrorResponse("admin/results.themes", error);
 
   const { data: votes, error: vErr } = await svc
     .from("votes")
     .select("theme_id, value")
     .eq("edition", JAM_CONFIG.edition);
-  if (vErr) return NextResponse.json({ message: vErr.message }, { status: 500 });
+  if (vErr) return dbErrorResponse("admin/results.votes", vErr);
 
   type Row = {
     id: string;

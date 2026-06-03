@@ -3,6 +3,7 @@ import { isAdminAuthorized } from "@/lib/admin-auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { JAM_CONFIG } from "@/lib/jam-config";
 import { isSameOrigin } from "@/lib/csrf";
+import { dbErrorResponse } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export async function GET() {
     .select("id, theme_ar, theme_en, approved, created_at")
     .eq("edition", JAM_CONFIG.edition)
     .order("created_at", { ascending: true });
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) return dbErrorResponse("admin/suggestions", error);
   return NextResponse.json({ suggestions: data ?? [] });
 }
 
@@ -35,6 +36,6 @@ export async function POST(req: Request) {
     .from("theme_suggestions")
     .update({ approved: body.approved ?? null })
     .eq("id", body.id);
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) return dbErrorResponse("admin/suggestions", error);
   return NextResponse.json({ success: true });
 }

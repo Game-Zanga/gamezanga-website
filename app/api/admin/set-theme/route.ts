@@ -3,6 +3,7 @@ import { isAdminAuthorized } from "@/lib/admin-auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { JAM_CONFIG } from "@/lib/jam-config";
 import { isSameOrigin } from "@/lib/csrf";
+import { dbErrorResponse } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,6 @@ export async function POST(req: Request) {
       },
       { onConflict: "edition" }
     );
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) return dbErrorResponse("admin/set-theme", error);
   return NextResponse.json({ success: true });
 }
