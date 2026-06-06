@@ -80,13 +80,12 @@ for (let i = 0; i < spam.length; i += BATCH) {
 }
 console.log(`\n✅ Deleted ${deletedParticipants} participant rows.\n`);
 
-// ─── 3. Walk Supabase Auth users in pages and delete matching emails ────
-console.log(`Scanning Supabase Auth users and deleting matches…`);
+// ─── 3. Walk Supabase Auth users in pages, collect matches, delete in parallel ────
+console.log(`Scanning Supabase Auth users…`);
 let authPage = 1;
 const PER_PAGE = 1000;
-let authDeleted = 0;
-let authFailed = 0;
 let authScanned = 0;
+const toDelete = [];
 
 while (true) {
   const { data, error } = await sb.auth.admin.listUsers({ page: authPage, perPage: PER_PAGE });
@@ -97,23 +96,32 @@ while (true) {
   const users = data.users ?? [];
   if (users.length === 0) break;
   authScanned += users.length;
+  process.stdout.write(`  page ${authPage} · scanned ${authScanned} · matched ${toDelete.length}\r`);
 
   for (const user of users) {
     const email = (user.email || "").toLowerCase();
-    if (!email || !spamEmails.has(email)) continue;
-    try {
-      const { error: delErr } = await sb.auth.admin.deleteUser(user.id);
-      if (delErr) authFailed++;
-      else authDeleted++;
-    } catch {
-      authFailed++;
-    }
-    if ((authDeleted + authFailed) % 100 === 0) {
-      process.stdout.write(`  scanned ${authScanned} · deleted ${authDeleted} · failed ${authFailed}\r`);
-    }
+    if (email && spamEmails.has(email)) toDelete.push(user.id);
   }
   if (users.length < PER_PAGE) break;
   authPage++;
+}
+console.log(`\n  scanned ${authScanned} auth users · ${toDelete.length} matched for deletion\n`);
+
+// Parallel delete with bounded concurrency (Supabase admin API can handle this).
+console.log(`Deleting auth users with concurrency=20…`);
+const CONCURRENCY = 20;
+let authDeleted = 0;
+let authFailed = 0;
+for (let i = 0; i < toDelete.length; i += CONCURRENCY) {
+  const batch = toDelete.slice(i, i + CONCURRENCY);
+  const results = await Promise.allSettled(batch.map((id) => sb.auth.admin.deleteUser(id)));
+  for (const r of results) {
+    if (r.status === "fulfilled" && !r.value.error) authDeleted++;
+    else authFailed++;
+  }
+  if (authDeleted + authFailed === toDelete.length || (authDeleted + authFailed) % 500 === 0) {
+    process.stdout.write(`  ${authDeleted + authFailed}/${toDelete.length}\r`);
+  }
 }
 
 console.log(`\n\n──────────────── DONE ────────────────`);

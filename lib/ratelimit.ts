@@ -17,8 +17,10 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-const url = process.env.UPSTASH_REDIS_REST_URL;
-const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+// Vercel's Upstash integration uses KV_REST_API_* naming by default; the
+// standalone Upstash dashboard uses UPSTASH_REDIS_REST_* naming. Accept either.
+const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
 
 const redis = url && token ? new Redis({ url, token }) : null;
 
