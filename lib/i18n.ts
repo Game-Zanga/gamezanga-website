@@ -209,6 +209,7 @@ export const t = {
   err_rate_limited:             { ar: "حاولت كثيراً بسرعة. الرجاء الانتظار دقيقة ثم إعادة المحاولة.", en: "Too many attempts. Please wait a minute and try again." },
   err_bad_origin:               { ar: "طلب غير صالح", en: "Invalid request origin" },
   err_maintenance:              { ar: "التسجيل متوقف مؤقتاً للصيانة. يرجى المحاولة لاحقاً.", en: "Registration temporarily paused for maintenance. Please try again later." },
+  err_captcha_failed:           { ar: "فشل التحقق من أنك لست روبوتاً. يرجى إعادة المحاولة.", en: "Bot-check verification failed. Please try again." },
 } as const;
 
 export type TranslationKey = keyof typeof t;

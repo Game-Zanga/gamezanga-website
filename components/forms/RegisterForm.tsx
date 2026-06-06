@@ -3,14 +3,22 @@
 import { useState } from "react";
 import { useLocale } from "@/components/LocaleProvider";
 import { COUNTRIES, trCode } from "@/lib/i18n";
+import { Turnstile } from "@/components/forms/Turnstile";
 
 type State = "idle" | "submitting" | "success" | "error";
+
+const TURNSTILE_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 export function RegisterForm() {
   const { locale, tr } = useLocale();
   const [state, setState] = useState<State>("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [errorMsg, setErrorMsg] = useState<string>("");
+  // Cloudflare Turnstile CAPTCHA token. Empty until the widget completes its
+  // background challenge. `widgetKey` bumps to remount the widget for a fresh
+  // token after a failed submission (tokens are single-use).
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [widgetKey, setWidgetKey] = useState(0);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -48,11 +56,16 @@ export function RegisterForm() {
         body: JSON.stringify({
           ...form,
           participated_before: form.participated_before === "yes",
+          turnstile_token: turnstileToken,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         setState("error");
+        // Token was consumed by the verify call (single-use). Force the widget
+        // to re-render so the user gets a fresh token without manual interaction.
+        setTurnstileToken("");
+        setWidgetKey((k) => k + 1);
         if (Array.isArray(data?.errors)) {
           const e: Record<string, string> = {};
           for (const err of data.errors) e[err.field] = trCode(err.code, locale);
@@ -66,6 +79,8 @@ export function RegisterForm() {
       setState("success");
     } catch {
       setState("error");
+      setTurnstileToken("");
+      setWidgetKey((k) => k + 1);
       setErrorMsg(trCode("err_network", locale));
     }
   }
@@ -236,9 +251,21 @@ export function RegisterForm() {
         </div>
       </Field>
 
+      {/* Cloudflare Turnstile invisible-ish CAPTCHA. Renders nothing if env not set (local dev). */}
+      <Turnstile
+        key={widgetKey}
+        onToken={setTurnstileToken}
+        onError={() => setErrorMsg(trCode("err_captcha_failed", locale))}
+        theme="dark"
+      />
+
       {errorMsg && <div className="error">{errorMsg}</div>}
 
-      <button type="submit" disabled={state === "submitting"} className="btn btn-primary w-full md:w-auto">
+      <button
+        type="submit"
+        disabled={state === "submitting" || (TURNSTILE_ENABLED && !turnstileToken)}
+        className="btn btn-primary w-full md:w-auto"
+      >
         {state === "submitting" ? tr("submitting") : tr("submit")}
       </button>
     </form>

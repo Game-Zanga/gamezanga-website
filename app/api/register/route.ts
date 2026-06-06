@@ -6,6 +6,7 @@ import { JAM_CONFIG } from "@/lib/jam-config";
 import { getResend, EMAIL_FROM } from "@/lib/resend";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit } from "@/lib/ratelimit";
+import { verifyTurnstile } from "@/lib/turnstile";
 import RegistrationConfirmation from "@/emails/RegistrationConfirmation";
 
 export const runtime = "nodejs";
@@ -39,6 +40,18 @@ export async function POST(req: Request) {
     body = await req.json();
   } catch {
     return NextResponse.json({ code: "err_invalid_json" }, { status: 400 });
+  }
+
+  // Verify Cloudflare Turnstile token BEFORE any DB work. Bots without a valid
+  // browser-side challenge response will get rejected here. Verification is
+  // skipped if TURNSTILE_SECRET_KEY isn't set (dev convenience).
+  const turnstileToken = typeof (body as { turnstile_token?: unknown })?.turnstile_token === "string"
+    ? (body as { turnstile_token: string }).turnstile_token
+    : "";
+  const turnstileResult = await verifyTurnstile(turnstileToken, req);
+  if (!turnstileResult.ok) {
+    console.warn("Turnstile verify failed:", turnstileResult.reason);
+    return NextResponse.json({ code: "err_captcha_failed" }, { status: 403 });
   }
 
   const { data, errors } = validateRegister(body);
