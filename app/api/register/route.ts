@@ -7,6 +7,7 @@ import { getResend, EMAIL_FROM } from "@/lib/resend";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit } from "@/lib/ratelimit";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { checkSpamSignature } from "@/lib/spam-filter";
 import RegistrationConfirmation from "@/emails/RegistrationConfirmation";
 
 export const runtime = "nodejs";
@@ -56,6 +57,16 @@ export async function POST(req: Request) {
 
   const { data, errors } = validateRegister(body);
   if (!data) return NextResponse.json({ errors }, { status: 400 });
+
+  // Spam signature blocklist. The attacker's bot reuses the same name and
+  // UUID-format emails — block them at the door. We return fake success here
+  // (200 with a synthetic id) so the bot doesn't learn to vary its payload;
+  // they think their write succeeded and move on, but no DB row is created.
+  const spamCheck = checkSpamSignature({ full_name: data.full_name, email: data.email });
+  if (!spamCheck.ok) {
+    console.warn("Spam signature matched:", spamCheck.reason, "email:", data.email);
+    return NextResponse.json({ success: true, id: "00000000-0000-0000-0000-000000000000" });
+  }
 
   const supabase = getServiceClient();
 
