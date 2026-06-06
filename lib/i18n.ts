@@ -208,6 +208,7 @@ export const t = {
   err_not_registered_signin:    { ar: "هذا البريد ليس مسجلاً في الزنقة. سجّل أولاً من صفحة التسجيل.", en: "This email is not registered for the jam. Please register first." },
   err_rate_limited:             { ar: "حاولت كثيراً بسرعة. الرجاء الانتظار دقيقة ثم إعادة المحاولة.", en: "Too many attempts. Please wait a minute and try again." },
   err_bad_origin:               { ar: "طلب غير صالح", en: "Invalid request origin" },
+  err_maintenance:              { ar: "التسجيل متوقف مؤقتاً للصيانة. يرجى المحاولة لاحقاً.", en: "Registration temporarily paused for maintenance. Please try again later." },
 } as const;
 
 export type TranslationKey = keyof typeof t;

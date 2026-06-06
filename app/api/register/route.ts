@@ -11,6 +11,13 @@ import RegistrationConfirmation from "@/emails/RegistrationConfirmation";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  // EMERGENCY MAINTENANCE — flip MAINTENANCE_MODE=true in Vercel env to instantly
+  // block all registration attempts (e.g. during a spam attack). Returns 503
+  // before any DB or auth work so it costs essentially nothing per request.
+  // To re-enable: delete the env var (or set to anything other than "true") and redeploy.
+  if (process.env.MAINTENANCE_MODE === "true") {
+    return NextResponse.json({ code: "err_maintenance" }, { status: 503 });
+  }
   if (!isSameOrigin(req)) {
     return NextResponse.json({ code: "err_bad_origin" }, { status: 403 });
   }
