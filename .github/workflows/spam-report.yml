@@ -1,0 +1,33 @@
+name: Spam report (every 3 hours)
+
+# Runs at minute 0 of every 3rd hour UTC: 00, 03, 06, 09, 12, 15, 18, 21.
+# GitHub Actions cron is best-effort — may run a few minutes late under load.
+# Free for public repos and the first ~2000 minutes/month for private repos.
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  # Allow manual triggering from the Actions tab for testing.
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call cron endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          response=$(curl -sS -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            https://www.gamezanga.net/api/cron/spam-report)
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+          echo "HTTP $status"
+          echo "$body"
+          if [ "$status" != "200" ]; then
+            echo "::error::cron endpoint returned non-200"
+            exit 1
+          fi

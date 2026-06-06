@@ -62,7 +62,7 @@ export async function POST(req: Request) {
   // UUID-format emails — block them at the door. We return fake success here
   // (200 with a synthetic id) so the bot doesn't learn to vary its payload;
   // they think their write succeeded and move on, but no DB row is created.
-  const spamCheck = checkSpamSignature({ full_name: data.full_name, email: data.email });
+  const spamCheck = await checkSpamSignature({ full_name: data.full_name, email: data.email });
   if (!spamCheck.ok) {
     console.warn("Spam signature matched:", spamCheck.reason, "email:", data.email);
     return NextResponse.json({ success: true, id: "00000000-0000-0000-0000-000000000000" });
