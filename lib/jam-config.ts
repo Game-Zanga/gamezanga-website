@@ -6,17 +6,17 @@ export const JAM_CONFIG = {
   tagline_en: "Arab Game Development Event",
 
   // Jam dates (Saudi time = UTC+3)
-  jam_start: "2026-07-02T20:00:00+03:00", // Thursday 8pm
-  jam_end: "2026-07-05T22:00:00+03:00", // Sunday 10pm
+  jam_start: "2026-08-13T20:00:00+03:00", // Thursday 8pm
+  jam_end: "2026-08-16T22:00:00+03:00", // Sunday 10pm
 
   // Phase dates
-  registration_open: "2026-05-25T00:00:00+03:00", // placeholder — adjust
-  registration_close: "2026-07-05T23:59:00+03:00", // open through 5 Jul (during the jam)
-  suggestion_open: "2026-05-27T00:00:00+03:00", // open now
-  suggestion_close: "2026-06-15T23:59:00+03:00", // open through 15 Jun
-  voting_open: "2026-06-19T00:00:00+03:00", // TBD
-  voting_close: "2026-06-28T23:59:00+03:00", // TBD
-  theme_announced: "2026-07-02T20:00:00+03:00", // = jam_start
+  registration_open: "2026-05-25T00:00:00+03:00",
+  registration_close: "2026-08-16T22:00:00+03:00", // open through end of jam
+  suggestion_open: "2026-05-27T00:00:00+03:00",
+  suggestion_close: "2026-07-22T00:00:00+03:00",
+  voting_open: "2026-07-30T00:00:00+03:00",
+  voting_close: "2026-08-12T00:00:00+03:00",
+  theme_announced: "2026-08-13T20:00:00+03:00", // = jam_start
 
   // Links
   itchio_url: "https://itch.io/jam/gamezanga14",
