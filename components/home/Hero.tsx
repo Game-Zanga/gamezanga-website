@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useLocale } from "@/components/LocaleProvider";
 import { JAM_CONFIG } from "@/lib/jam-config";
+import { formatArabicDateRange, formatEnglishDateRange } from "@/lib/date-format";
 import { Countdown } from "./Countdown";
 
 export function Hero() {
@@ -62,13 +63,7 @@ export function Hero() {
 }
 
 function formatDateRange(startISO: string, endISO: string, locale: "ar" | "en") {
-  const start = new Date(startISO);
-  const end = new Date(endISO);
-  const fmt = new Intl.DateTimeFormat(locale === "ar" ? "ar" : "en", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "Asia/Riyadh",
-  });
-  return `${fmt.format(start)} — ${fmt.format(end)}`;
+  return locale === "ar"
+    ? formatArabicDateRange(startISO, endISO)
+    : formatEnglishDateRange(startISO, endISO);
 }
