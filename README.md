@@ -78,12 +78,12 @@ VALUES (15, 'pre_registration')
 ON CONFLICT (edition) DO NOTHING;
 ```
 
-Optionally bump the column defaults so manual SQL queries pick up the right edition:
+Optionally bump the column defaults so manual SQL queries pick up the right edition. Note `participants.editions` is a **`TEXT[]`** (one row per person, accumulating edition tags like `{"14","15","SE"}`), while `theme_suggestions` / `votes` keep a singular `INTEGER edition`:
 
 ```sql
-ALTER TABLE participants      ALTER COLUMN edition SET DEFAULT 15;
-ALTER TABLE theme_suggestions ALTER COLUMN edition SET DEFAULT 15;
-ALTER TABLE votes             ALTER COLUMN edition SET DEFAULT 15;
+ALTER TABLE participants      ALTER COLUMN editions SET DEFAULT ARRAY['15'];
+ALTER TABLE theme_suggestions ALTER COLUMN edition  SET DEFAULT 15;
+ALTER TABLE votes             ALTER COLUMN edition  SET DEFAULT 15;
 ```
 
 ---
@@ -105,7 +105,7 @@ ALTER TABLE votes             ALTER COLUMN edition SET DEFAULT 15;
 
 ## Admin operations
 
-The admin panel at `/admin` is gated by a single env var (`ADMIN_SECRET`). Paste the secret into the login screen — it's stored in `sessionStorage` and sent as `x-admin-secret` on every `/api/admin/*` call.
+The admin panel at `/admin` is gated by a single env var (`ADMIN_SECRET`). Paste the secret into the login screen — `POST /api/admin/login` exchanges it for an **HTTP-only, HMAC-signed `gz_admin` session cookie** (8h). JS can't read the cookie, so it's not XSS-exfiltratable. All `/api/admin/*` routes verify the cookie via `isAdminAuthorized()`.
 
 Four panels:
 
@@ -129,9 +129,16 @@ Same keys as `.env.example`, with these production-specific values:
 |---|---|
 | `NEXT_PUBLIC_SITE_URL` | `https://www.gamezanga.net` |
 | `ADMIN_SECRET` | *(a fresh value, **not** the dev one — generate with `openssl rand -hex 32` and store in a password manager)* |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | from the Cloudflare Turnstile widget |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | injected by the Vercel → Upstash integration |
+| `CRON_SECRET` | set here **and** as a GitHub Actions repo secret (same value) |
+| `DISCORD_SPAM_WEBHOOK` | Discord webhook the 3-hourly spam report posts to |
+| `MAINTENANCE_MODE` | leave unset; set to `true` only to hard-close registration |
 | Everything else | same as `.env.local` |
 
 After changing any env var, you have to **manually redeploy** (Deployments → ⋯ on latest → Redeploy) — env changes don't apply retroactively.
+
+> **Security & anti-spam**: registration is protected by CSRF origin checks, Upstash rate limiting, Cloudflare Turnstile, and a static+dynamic spam blocklist (with a 3-hourly Discord report + auto-blocklist cron). See **CLAUDE.md → Security** for the full picture.
 
 ### Domain (`gamezanga.net`)
 
