@@ -166,12 +166,19 @@ export async function POST(req: Request) {
   try {
     if (process.env.RESEND_API_KEY) {
       const resend = getResend();
-      await resend.emails.send({
+      // NOTE: resend.emails.send() resolves with { error } on API failures — it
+      // does NOT throw, so the catch below never sees them. Inspect `error`
+      // explicitly or delivery problems (quota exhaustion, suspension) stay
+      // invisible in the logs.
+      const { error: sendErr } = await resend.emails.send({
         from: EMAIL_FROM,
         to: data.email,
         subject: `${JAM_CONFIG.name_ar} ${JAM_CONFIG.edition} — تأكيد التسجيل / Registration Confirmed`,
         react: RegistrationConfirmation({ fullName: data.full_name }),
       });
+      if (sendErr) {
+        console.error("registration email rejected by Resend", sendErr.name, sendErr.message, data.email);
+      }
     }
   } catch (e) {
     console.error("registration email failed", e);
