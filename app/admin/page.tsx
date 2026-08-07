@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/components/LocaleProvider";
 
 const PAGE_SIZE = 50;
@@ -382,73 +382,253 @@ type Suggestion = {
   created_at: string;
 };
 
+type SuggestionStatus = "all" | "pending" | "approved" | "rejected";
+type StatusCounts = Record<SuggestionStatus, number>;
+
+const SUGGESTION_PAGE_SIZE = 24;
+
+// Status is encoded in colour + label, never colour alone.
+function statusMeta(approved: boolean | null, locale: "ar" | "en") {
+  if (approved === true) {
+    return {
+      label: locale === "ar" ? "معتمد" : "Approved",
+      cls: "border-[color:var(--color-success)]/40 bg-[color:var(--color-success)]/10 text-[color:var(--color-success)]",
+    };
+  }
+  if (approved === false) {
+    return {
+      label: locale === "ar" ? "مرفوض" : "Rejected",
+      cls: "border-[color:var(--color-danger)]/40 bg-[color:var(--color-danger)]/10 text-[color:var(--color-danger)]",
+    };
+  }
+  return {
+    label: locale === "ar" ? "قيد المراجعة" : "Pending",
+    cls: "border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] text-[color:var(--color-muted)]",
+  };
+}
+
 function SuggestionsPanel({ locale }: { locale: "ar" | "en" }) {
   const { tr } = useLocale();
   const [rows, setRows] = useState<Suggestion[]>([]);
+  const [counts, setCounts] = useState<StatusCounts>({ all: 0, pending: 0, approved: 0, rejected: 0 });
+  const [total, setTotal] = useState(0);
+  const [status, setStatus] = useState<SuggestionStatus>("all");
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  // Tracks the row being mutated so its buttons can disable mid-flight.
+  const [busyId, setBusyId] = useState<string | null>(null);
+  // Monotonic request id — switching filters quickly can leave two loads in
+  // flight, and the slower one must not overwrite the newer result.
+  const reqSeq = useRef(0);
 
   async function load() {
-    const res = await adminFetch("/api/admin/suggestions");
-    const data = await res.json();
-    if (res.ok) setRows(data.suggestions);
-    setLoading(false);
+    const seq = ++reqSeq.current;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await adminFetch(
+        `/api/admin/suggestions?status=${status}&page=${page}&limit=${SUGGESTION_PAGE_SIZE}`
+      );
+      const data = await res.json();
+      if (seq !== reqSeq.current) return; // superseded
+      if (!res.ok) throw new Error(data.message || "Failed");
+      const list: Suggestion[] = data.suggestions ?? [];
+      const count: number = data.total ?? 0;
+      // Approving rows while filtered to "pending" shrinks that set, which can
+      // leave us past the last page. Step back rather than showing "No results".
+      if (list.length === 0 && count > 0 && page > 0) {
+        setPage(Math.max(0, Math.ceil(count / SUGGESTION_PAGE_SIZE) - 1));
+        return;
+      }
+      setRows(list);
+      setTotal(count);
+      if (data.counts) setCounts(data.counts);
+    } catch (e) {
+      if (seq !== reqSeq.current) return;
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      if (seq === reqSeq.current) setLoading(false);
+    }
   }
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [status, page]);
+
+  // Changing the filter re-scopes the list, so any current page number is stale.
+  // Rows are dropped too — otherwise the previous filter's cards stay on screen
+  // during the fetch, making it look like the filter did nothing.
+  useEffect(() => {
+    setPage(0);
+    setRows([]);
+  }, [status]);
 
   async function setApproval(id: string, approved: boolean | null) {
-    await adminFetch("/api/admin/suggestions", {
-      method: "POST",
-      body: JSON.stringify({ id, approved }),
-    });
-    load();
+    setBusyId(id);
+    try {
+      const res = await adminFetch("/api/admin/suggestions", {
+        method: "POST",
+        body: JSON.stringify({ id, approved }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed");
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusyId(null);
+    }
   }
+
+  const pageCount = Math.max(1, Math.ceil(total / SUGGESTION_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+
+  const filters: { key: SuggestionStatus; label: string }[] = [
+    { key: "all", label: locale === "ar" ? "الكل" : "All" },
+    { key: "pending", label: locale === "ar" ? "قيد المراجعة" : "Pending" },
+    { key: "approved", label: locale === "ar" ? "معتمد" : "Approved" },
+    { key: "rejected", label: locale === "ar" ? "مرفوض" : "Rejected" },
+  ];
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">
-        {tr("admin_suggestions")} <span className="text-[color:var(--color-muted)] font-normal">({rows.length})</span>
-      </h2>
-      {loading ? (
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <h2 className="text-xl font-bold">
+          {tr("admin_suggestions")}{" "}
+          <span className="text-[color:var(--color-muted)] font-normal">({counts.all})</span>
+        </h2>
+        <div className="flex items-center gap-2 flex-wrap">
+          {filters.map((f) => {
+            const active = status === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setStatus(f.key)}
+                aria-pressed={active}
+                className={`px-3 py-1.5 rounded-md border text-sm transition-colors ${
+                  active
+                    ? "bg-[color:var(--color-accent)]/15 border-[color:var(--color-accent)] text-[color:var(--color-fg)]"
+                    : "border-[color:var(--color-border)] text-[color:var(--color-muted)] hover:bg-[color:var(--color-surface)]"
+                }`}
+              >
+                {f.label}{" "}
+                <span className="font-mono tabular-nums text-xs opacity-70" dir="ltr">
+                  {counts[f.key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {error && <div className="error mb-3">{error}</div>}
+
+      {loading && rows.length === 0 ? (
         <div className="text-[color:var(--color-muted)]">…</div>
+      ) : rows.length === 0 ? (
+        <div className="card-glow p-6 text-center text-[color:var(--color-muted)]">
+          {locale === "ar" ? "لا نتائج" : "No results"}
+        </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-3">
-          {rows.map((s) => (
-            <div key={s.id} className="card-glow p-4 flex items-start justify-between gap-3">
-              <div>
-                <div className="font-medium">{s.theme_ar}</div>
-                {s.theme_en && <div className="text-sm text-[color:var(--color-muted)]" dir="ltr">{s.theme_en}</div>}
-                <div className="text-xs text-[color:var(--color-muted)] mt-1">
-                  {s.approved === true
-                    ? locale === "ar"
-                      ? "معتمد"
-                      : "approved"
-                    : s.approved === false
-                    ? locale === "ar"
-                      ? "مرفوض"
-                      : "rejected"
-                    : locale === "ar"
-                    ? "قيد المراجعة"
-                    : "pending"}
+        <>
+          <div className="grid md:grid-cols-2 gap-3">
+            {rows.map((s) => {
+              const meta = statusMeta(s.approved, locale);
+              const busy = busyId === s.id;
+              return (
+                <div key={s.id} className="card-glow p-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-medium break-words">{s.theme_ar}</div>
+                    {s.theme_en && (
+                      <div className="text-sm text-[color:var(--color-muted)] break-words" dir="ltr">
+                        {s.theme_en}
+                      </div>
+                    )}
+                    <span
+                      className={`inline-block mt-2 px-2 py-0.5 rounded text-xs border ${meta.cls}`}
+                    >
+                      {meta.label}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <button
+                      onClick={() => setApproval(s.id, true)}
+                      disabled={busy || s.approved === true}
+                      className="btn btn-ghost text-xs disabled:opacity-40"
+                    >
+                      {tr("admin_approve")}
+                    </button>
+                    <button
+                      onClick={() => setApproval(s.id, false)}
+                      disabled={busy || s.approved === false}
+                      className="btn btn-ghost text-xs disabled:opacity-40"
+                    >
+                      {tr("admin_reject")}
+                    </button>
+                    <button
+                      onClick={() => setApproval(s.id, null)}
+                      disabled={busy || s.approved === null}
+                      className="btn btn-ghost text-xs disabled:opacity-40"
+                      title={locale === "ar" ? "إرجاع لقيد المراجعة" : "Reset to pending"}
+                    >
+                      ↺
+                    </button>
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+
+          {total > SUGGESTION_PAGE_SIZE && (
+            <div
+              className="flex items-center justify-between gap-3 mt-4 px-3 py-3 rounded-lg border border-[color:var(--color-border)] text-sm"
+              dir="ltr"
+            >
+              <div className="text-[color:var(--color-muted)]">
+                {safePage * SUGGESTION_PAGE_SIZE + 1}–
+                {Math.min((safePage + 1) * SUGGESTION_PAGE_SIZE, total)} of {total}
               </div>
-              <div className="flex flex-col gap-1">
-                <button onClick={() => setApproval(s.id, true)} className="btn btn-ghost text-xs">
-                  {tr("admin_approve")}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(0)}
+                  disabled={safePage === 0}
+                  className="btn btn-ghost text-xs disabled:opacity-40"
+                >
+                  ⏮
                 </button>
-                <button onClick={() => setApproval(s.id, false)} className="btn btn-ghost text-xs">
-                  {tr("admin_reject")}
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={safePage === 0}
+                  className="btn btn-ghost text-xs disabled:opacity-40"
+                >
+                  ‹ Prev
                 </button>
-                <button onClick={() => setApproval(s.id, null)} className="btn btn-ghost text-xs">
-                  ↺
+                <span className="text-[color:var(--color-muted)] tabular-nums px-2">
+                  {safePage + 1} / {pageCount}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  disabled={safePage >= pageCount - 1}
+                  className="btn btn-ghost text-xs disabled:opacity-40"
+                >
+                  Next ›
+                </button>
+                <button
+                  onClick={() => setPage(pageCount - 1)}
+                  disabled={safePage >= pageCount - 1}
+                  className="btn btn-ghost text-xs disabled:opacity-40"
+                >
+                  ⏭
                 </button>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

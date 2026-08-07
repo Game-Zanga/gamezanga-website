@@ -179,8 +179,13 @@ The site's current phase is computed from these dates at runtime by [`lib/phase-
 - Shows winning theme if announced (via the `WinningTheme` component).
 
 ### `/admin` — Admin Panel (password protected)
-- View all registrations (table, exportable to CSV in the client)
-- View all theme suggestions (approve / reject / un-approve)
+- View all registrations — server-paginated table (50/page), edition filter, "multi-edition only"
+  toggle, CSV export of the whole filtered set
+- **Theme suggestions** — server-paginated (24/page) with status filter chips
+  (الكل / قيد المراجعة / معتمد / مرفوض) showing live counts. Each card carries a coloured status
+  pill and approve / reject / reset-to-pending buttons; the button matching the current state is
+  disabled. Switching filters clears rows first, and a monotonic request counter discards
+  out-of-order responses so fast switching can't leave stale cards on screen.
 - **Live Results** panel — per-theme net score, +1 / 0 / −1 breakdown, voter count, sorted by score. Admin-only — *not* exposed in the public `/api/themes` response.
 - Set the winning theme — manual input or one-click "Set as winner" on any row in Live Results
 - Send broadcast email to all registered participants (Resend, bilingual)
@@ -413,7 +418,12 @@ Then the actual write (**upsert by email**, not insert):
 - `?all=1` streams the full filtered set (used by the CSV export) — internally paginates around Supabase's 1000-row cap.
 
 ### `GET /api/admin/suggestions` and `POST /api/admin/suggestions` (protected)
-- `GET` lists all suggestions for the current edition (approved + pending + rejected).
+- `GET` is **server-side paginated + filterable**: `?status=all|pending|approved|rejected&page=N&limit=M`
+  (default 24, max 200) → `{ suggestions, total, page, limit, status, counts }`.
+- `approved` is **tri-state**: `TRUE` = approved, `FALSE` = rejected, `NULL` = pending. The status
+  filter maps to `.eq("approved", true)` / `.eq("approved", false)` / `.is("approved", null)`.
+- `counts` returns `{ all, pending, approved, rejected }` from four parallel `head: true` count
+  queries (no rows transferred) — it drives the filter chips in the admin panel.
 - `POST { id, approved: boolean | null }` sets the approval state.
 
 ### `GET /api/admin/results` (protected)
@@ -535,6 +545,54 @@ Slugs aren't fully consistent — editions 5 and 6 use `game-zanga-N` (with dash
 ### Poster hosting
 
 Posters are hosted locally under `public/images/editions/`. Filenames follow `gz<N>.jpg` (e.g. `gz12.jpg`), with `gz-special-2024.jpg` for the special edition. When adding a new edition, drop the new poster into that directory and point `poster_url` at the local path.
+
+---
+
+## Standalone deliverables (`docs/`)
+
+Three self-contained HTML files that are **not part of the Next.js build** — open them directly in
+a browser or publish them. Each inlines its own assets (Cairo woff2 subsets + the logos as data
+URIs), so they work offline and render Arabic correctly with no network access.
+
+> The two **standalone** files (`media-kit.html`, `social-post-generator.html`) need
+> `<meta charset="utf-8">` in the first 1024 bytes. Opened over `file://` there is no
+> `Content-Type` header, and Safari falls back to Windows-1252 — Arabic then renders as mojibake
+> (`زنقة` → `Ø²ÙÙ‚Ø©`), including into any canvas export. `itchio-page.html` is the exception: it's
+> a **fragment** for pasting into itch.io, so it carries no document-level tags at all.
+
+### `docs/social-post-generator.html`
+Canvas-based generator for branded artwork. Two modes:
+- **Social post** — presets for IG post/portrait/story, X, Facebook/OG, LinkedIn, YouTube thumb,
+  plus free width×height. Editable badge/tagline/meta/dates/CTA, logo tint, glows, grid, watermark.
+- **Profile icon** — square-locked avatar presets (X 400, IG 320, Discord 512, master 1000) using
+  the square logo, with a **preview-only** circle-crop guide. Export always re-renders offscreen so
+  the guide can never reach the PNG.
+
+The wide logo is tinted through its own alpha channel (canvas `source-in`), the same trick the site
+hero uses via CSS `mask-image`. Text is optically centred using `measureText` bounding-box metrics
+rather than a fixed offset, because Cairo's Arabic glyphs sit low in the em box.
+
+### `docs/media-kit.html` + `docs/Game-Zanga-Media-Kit-2026.pdf`
+Bilingual (Arabic-primary RTL, English as explicit LTR islands) partner/sponsor profile: audience
+numbers, country/age/skill breakdowns, tool-fit cards, collaboration options, direct contact.
+
+- Figures come from `scripts/media-kit-stats.mjs` — **re-run it and update the numbers by hand**
+  before sending; they are not wired to the DB at render time.
+- **The skills chart sums to ~179%, not 100%** — `تبدع في` is multi-select (≈1.8 skills/person).
+  There is a callout under the chart saying so; do not "fix" the numbers.
+- `@media print` swaps the dark palette for ink-on-paper and sets `@page { size: A4 }`.
+  `h2`/`figcaption` need `break-inside: avoid` as well as `break-after` — each heading wraps an
+  Arabic title plus a nested English sub-line, and a break between them strands the heading.
+- The PDF is rendered with Puppeteer (`preferCSSPageSize: true`, `emulateMediaType("print")`,
+  awaiting `document.fonts.ready`). Puppeteer is **not** a project dependency — install it in a
+  scratch dir outside the repo when regenerating.
+
+### `scripts/add-theme-suggestions.mjs`
+Bulk-inserts organiser-curated themes into the review queue as pending (`approved: null`,
+`participant_id: null`). Duplicate detection normalises Arabic — strips tashkeel, unifies أ/ا and
+ة/ه, ignores a leading ال — so `الاحلام` matches `أحلام`. On a duplicate it **deletes the old row
+and inserts the curated pair**, but aborts first if any duplicate carries votes, since
+`votes.theme_id` is `ON DELETE CASCADE`. Supports `--dry-run`.
 
 ---
 
@@ -715,10 +773,15 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 │   ├── import-legacy-registrations.mjs # CSV → participants upsert (editions[]); typo-normalizes emails
 │   ├── cleanup-spam.mjs / cleanup-full.mjs # delete spam rows + orphan auth users
 │   ├── verify-rls.mjs               # anon-key RLS audit (read/write/delete blocked?)
+│   ├── add-theme-suggestions.mjs    # bulk-insert curated themes as pending; --dry-run; see below
+│   ├── media-kit-stats.mjs          # read-only participant stats for the media kit
 │   ├── find-spam-patterns.mjs / recent-ed14.mjs / check-state.mjs / check-typos.mjs / fix-typos.mjs
 │   └── legacy-data/                 # gitignored — legacy CSVs (personal data, never commit)
-├── docs/
-│   └── itchio-page.html             # RTL Arabic HTML for the itch.io jam description
+├── docs/                            # Standalone deliverables — not part of the Next.js build
+│   ├── itchio-page.html             # RTL Arabic HTML for the itch.io jam description
+│   ├── media-kit.html               # bilingual partner/sponsor media kit (see Media Kit below)
+│   ├── Game-Zanga-Media-Kit-2026.pdf # A4 PDF rendered from media-kit.html
+│   └── social-post-generator.html   # canvas tool: branded social posts + profile icons
 ├── .github/workflows/
 │   └── spam-report.yml              # every-3h cron → /api/cron/spam-report
 ├── public/
@@ -795,6 +858,10 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 - **`isAdminAuthorized()` is now async and takes no args** — it reads the `gz_admin` cookie via `next/headers`. Call it as `if (!(await isAdminAuthorized())) …`. (It used to take the `req` and read a header.)
 - **Security helpers fail open when unconfigured.** `isSameOrigin`, `checkRateLimit`, `verifyTurnstile`, and the dynamic blocklist all allow the request if their env vars are missing — great for local dev, but it means a missing prod env var silently disables that protection. Verify all keys are set in Vercel after any env change.
 - **Don't `.eq("email", …)` for the current-user lookup and also filter by edition with `.eq`** — participant rows are global; scope by `editions` containment instead.
+- **`theme_suggestions.approved` is tri-state, not a boolean.** `TRUE` = approved, `FALSE` = rejected, `NULL` = pending. Query pending with `.is("approved", null)` — `.eq("approved", null)` does **not** work in SQL. Anywhere you branch on it, handle all three.
+- **Supabase silently caps `.select()` at 1000 rows.** This has bitten this repo twice (the registrations table, then the suggestions queue) — both times the UI looked fine while quietly hiding data. Any endpoint that can exceed 1000 rows must paginate with `.range(from, to)` in a loop or accept `?page=`/`?limit=`. Use `{ count: "exact" }` for totals and `{ count: "exact", head: true }` for count-only queries (no rows transferred).
+- **Any list UI that re-fetches on a filter change needs a request-sequence guard.** Switching filters quickly leaves two loads in flight and the slower response can overwrite the newer one. `SuggestionsPanel` keeps a monotonic `useRef` counter and drops superseded responses; it also clears rows on filter change so the previous filter's cards don't linger during the fetch.
+- **Standalone `docs/*.html` need `<meta charset="utf-8">` in the first 1024 bytes** — opened over `file://` there's no `Content-Type` header, and Safari decodes UTF-8 as Windows-1252, turning Arabic into mojibake. Applies to `media-kit.html` and `social-post-generator.html`. **`itchio-page.html` deliberately has none**: it's a fragment pasted into itch.io's description field (which supplies its own charset), and that sanitiser renders stray non-content tags as visible text — it ate HTML comments once already.
 - **Tests passed once with this stack** but there are no automated tests in the repo. Verifications were done by running `npm run build` (or `npx tsc --noEmit`) after each significant change.
 
 ---
@@ -820,6 +887,27 @@ Each year, the routine is:
 3. **Update partner / media-partner logos and links** in [`components/home/Partners.tsx`](components/home/Partners.tsx). Each entry takes `{ src, alt, href? }`, hosted locally under `public/images/partners/`.
 4. **Rotate `ADMIN_SECRET`** for production via Vercel env vars (also invalidates all existing `gz_admin` cookies).
 5. **Update `docs/itchio-page.html`** with the new dates (uses Levantine month names, e.g. آب for August, تموز for July) and re-paste into the itch.io description.
-6. **Consider `MAINTENANCE_MODE`** during the pre-launch window if bots return; the spam blocklist (`blocklist:names` in Upstash) persists across editions and can be pruned via the Upstash console.
+6. **Refresh the outward-facing collateral in `docs/`**:
+   - `social-post-generator.html` — update the default badge/tagline/dates in the Content panel.
+   - `media-kit.html` — re-run `scripts/media-kit-stats.mjs`, hand-update the figures and the
+     `PAST_EDITIONS`-derived counts, then re-render the PDF with Puppeteer.
+7. **Consider `MAINTENANCE_MODE`** during the pre-launch window if bots return; the spam blocklist (`blocklist:names` in Upstash) persists across editions and can be pruned via the Upstash console.
 
 Everything else stays the same.
+
+---
+
+## Session log — what changed and why
+
+Reverse-chronological. Useful for understanding *why* something looks the way it does.
+
+| Change | Reason |
+|---|---|
+| Suggestions queue: server pagination + status filters + counts | 100 suggestions rendered as one unbroken wall; also closed the same 1000-row truncation risk the registrations table had |
+| `docs/media-kit.html` + PDF | Qwacks (game-dev tooling platform) asked for a ملف تعريفي for a potential collaboration |
+| `docs/social-post-generator.html` | Reusable branded artwork at any size, instead of one-off posts |
+| Arabic date format w/ Levantine months (`lib/date-format.ts`) | "13 أغسطس 2026" → "الخميس ١٣ اغسطس (آب) …" so it reads naturally across the Arab region |
+| Edition 14 postponed to 13–16 Aug 2026 | Was 2–5 Jul |
+| Turnstile + Upstash rate limiting + spam blocklist + `MAINTENANCE_MODE` | 42k-row mass-signup bot attack on `/register`; see **Security** |
+| `participants.edition` → `editions TEXT[]` | One row per person accumulating edition tags, so ~2.3k legacy registrations across editions 12/SE/13 could be imported without duplicating people |
+| Admin auth → HTTP-only signed cookie | `ADMIN_SECRET` in `sessionStorage` was XSS-exfiltratable |

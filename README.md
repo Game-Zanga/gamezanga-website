@@ -107,13 +107,13 @@ ALTER TABLE votes             ALTER COLUMN edition  SET DEFAULT 15;
 
 The admin panel at `/admin` is gated by a single env var (`ADMIN_SECRET`). Paste the secret into the login screen — `POST /api/admin/login` exchanges it for an **HTTP-only, HMAC-signed `gz_admin` session cookie** (8h). JS can't read the cookie, so it's not XSS-exfiltratable. All `/api/admin/*` routes verify the cookie via `isAdminAuthorized()`.
 
-Four panels:
+Five panels:
 
-1. **Registrations** — table of all participants, export to CSV.
-2. **Suggestions** — approve / reject / un-approve submitted themes.
+1. **Registrations** — paginated table (50/page) with an edition filter, a "multi-edition only" toggle, and CSV export of the whole filtered set.
+2. **Suggestions** — paginated (24/page) with status filter chips showing live counts (All / Pending / Approved / Rejected). Approve, reject, or reset a theme to pending.
 3. **Live Results** — per-theme net score, +1/0/−1 breakdown, voter count, sorted by score. **Hidden from voters** — `/api/themes` (the public endpoint) only exposes scores after the theme is announced.
 4. **Set Winner** — manual entry; or click "Set as winner" on a row in the Live Results table.
-5. **Broadcast Email** — sends a bilingual email to all registered participants this edition.
+5. **Broadcast Email** — bilingual email to participants, targetable by edition (`all`, a specific edition, or a set).
 
 ---
 
@@ -176,8 +176,27 @@ npm run lint     # eslint
 app/             Pages + API routes (App Router)
 components/      Layout, forms, UI primitives
 emails/          React-Email templates
-lib/             jam-config, phase-utils, i18n, validation, supabase clients, etc.
+lib/             jam-config, phase-utils, i18n, validation, security helpers, supabase clients
+scripts/         One-off maintenance (imports, spam cleanup, stats) — run with node --env-file
+docs/            Standalone deliverables, not part of the build (see below)
 public/images/   Local assets — editions/ (past-jam posters), partners/ (logos)
 ```
 
 See CLAUDE.md → Folder Structure for the full tree.
+
+---
+
+## Standalone deliverables (`docs/`)
+
+Self-contained HTML — open directly in a browser, no build step. Fonts and logos are inlined as
+data URIs so they work offline and render Arabic correctly.
+
+| File | What |
+|---|---|
+| `social-post-generator.html` | Canvas tool — branded social posts at any size, plus circle-safe profile icons. Exports PNG. |
+| `media-kit.html` | Bilingual partner/sponsor profile — audience numbers, demographics, collaboration options. |
+| `Game-Zanga-Media-Kit-2026.pdf` | A4 PDF rendered from the above (Puppeteer, print stylesheet). |
+| `itchio-page.html` | RTL Arabic fragment to paste into the itch.io jam description. |
+
+Media-kit figures come from `scripts/media-kit-stats.mjs` and are **hand-updated** — re-run it and
+edit the numbers before sending. See CLAUDE.md → Standalone deliverables for the gotchas.
