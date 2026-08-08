@@ -109,8 +109,8 @@ The admin panel at `/admin` is gated by a single env var (`ADMIN_SECRET`). Paste
 
 Five panels:
 
-1. **Registrations** — paginated table (50/page) with an edition filter, a "multi-edition only" toggle, and CSV export of the whole filtered set.
-2. **Suggestions** — paginated (24/page) with status filter chips showing live counts (All / Pending / Approved / Rejected). Approve, reject, or reset a theme to pending.
+1. **Registrations** — paginated table (25/page) with an edition filter, a "multi-edition only" toggle, and CSV export of the whole filtered set.
+2. **Suggestions** — paginated (10/page) with status filter chips showing live counts (All / Pending / Approved / Rejected), opening on **Approved**. Approve, reject, or reset a theme to pending.
 3. **Live Results** — per-theme net score, +1/0/−1 breakdown, voter count, sorted by score. **Hidden from voters** — `/api/themes` (the public endpoint) only exposes scores after the theme is announced.
 4. **Set Winner** — manual entry; or click "Set as winner" on a row in the Live Results table.
 5. **Broadcast Email** — bilingual email to participants, targetable by edition (`all`, a specific edition, or a set).

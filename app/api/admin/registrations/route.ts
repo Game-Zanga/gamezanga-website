@@ -7,7 +7,7 @@ import { dbErrorResponse } from "@/lib/api-errors";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DEFAULT_LIMIT = 50;
+const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 1000; // cap so a malicious/buggy client can't ask for the whole table
 
 export async function GET(req: Request) {

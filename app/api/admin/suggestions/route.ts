@@ -8,7 +8,7 @@ import { dbErrorResponse } from "@/lib/api-errors";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DEFAULT_LIMIT = 24;
+const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 200;
 
 // `approved` is tri-state: TRUE = approved, FALSE = rejected, NULL = pending.

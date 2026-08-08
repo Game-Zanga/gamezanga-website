@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/components/LocaleProvider";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 type AuthState = "checking" | "signed_in" | "signed_out";
 
@@ -385,7 +385,7 @@ type Suggestion = {
 type SuggestionStatus = "all" | "pending" | "approved" | "rejected";
 type StatusCounts = Record<SuggestionStatus, number>;
 
-const SUGGESTION_PAGE_SIZE = 24;
+const SUGGESTION_PAGE_SIZE = 10;
 
 // Status is encoded in colour + label, never colour alone.
 function statusMeta(approved: boolean | null, locale: "ar" | "en") {
@@ -412,7 +412,9 @@ function SuggestionsPanel({ locale }: { locale: "ar" | "en" }) {
   const [rows, setRows] = useState<Suggestion[]>([]);
   const [counts, setCounts] = useState<StatusCounts>({ all: 0, pending: 0, approved: 0, rejected: 0 });
   const [total, setTotal] = useState(0);
-  const [status, setStatus] = useState<SuggestionStatus>("all");
+  // Defaults to the approved set — the themes actually picked for the voting
+  // round are what the panel is opened to look at day to day.
+  const [status, setStatus] = useState<SuggestionStatus>("approved");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

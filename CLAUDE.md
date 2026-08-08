@@ -179,10 +179,12 @@ The site's current phase is computed from these dates at runtime by [`lib/phase-
 - Shows winning theme if announced (via the `WinningTheme` component).
 
 ### `/admin` — Admin Panel (password protected)
-- View all registrations — server-paginated table (50/page), edition filter, "multi-edition only"
+- View all registrations — server-paginated table (25/page), edition filter, "multi-edition only"
   toggle, CSV export of the whole filtered set
-- **Theme suggestions** — server-paginated (24/page) with status filter chips
-  (الكل / قيد المراجعة / معتمد / مرفوض) showing live counts. Each card carries a coloured status
+- **Theme suggestions** — server-paginated (10/page) with status filter chips
+  (الكل / قيد المراجعة / معتمد / مرفوض) showing live counts. **The panel opens on معتمد
+  (approved)** — the themes actually picked for the voting round — not on الكل. Each card
+  carries a coloured status
   pill and approve / reject / reset-to-pending buttons; the button matching the current state is
   disabled. Switching filters clears rows first, and a monotonic request counter discards
   out-of-order responses so fast switching can't leave stale cards on screen.
@@ -413,13 +415,13 @@ Then the actual write (**upsert by email**, not insert):
 - `check`: returns `{ authorized: true }` / 401 — the admin page calls it on mount to decide whether to show the login form (JS can't read the HttpOnly cookie).
 
 ### `GET /api/admin/registrations` (protected)
-- **Server-side paginated**: `?page=N&limit=M` (default 50, max 1000) → `{ participants, total, page, limit }`.
+- **Server-side paginated**: `?page=N&limit=M` (default 25, max 1000) → `{ participants, total, page, limit }`.
 - `?edition=TAG` filters via `editions @> ARRAY[TAG]` (default = current edition; `?edition=all` = everyone ever). Tags are strings ("14", "13", "SE").
 - `?all=1` streams the full filtered set (used by the CSV export) — internally paginates around Supabase's 1000-row cap.
 
 ### `GET /api/admin/suggestions` and `POST /api/admin/suggestions` (protected)
 - `GET` is **server-side paginated + filterable**: `?status=all|pending|approved|rejected&page=N&limit=M`
-  (default 24, max 200) → `{ suggestions, total, page, limit, status, counts }`.
+  (default 10, max 200) → `{ suggestions, total, page, limit, status, counts }`.
 - `approved` is **tri-state**: `TRUE` = approved, `FALSE` = rejected, `NULL` = pending. The status
   filter maps to `.eq("approved", true)` / `.eq("approved", false)` / `.is("approved", null)`.
 - `counts` returns `{ all, pending, approved, rejected }` from four parallel `head: true` count
