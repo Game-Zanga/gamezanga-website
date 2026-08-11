@@ -1,8 +1,34 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { RegisterForm } from "@/components/forms/RegisterForm";
-import { PhaseGate } from "@/components/ui/PhaseGate";
 import { useLocale } from "@/components/LocaleProvider";
+import { isRegistrationOpen } from "@/lib/phase-utils";
+
+/**
+ * Gates the form on isRegistrationOpen() — the exact predicate /api/register
+ * enforces — rather than on a list of phases.
+ *
+ * This used to be a PhaseGate allowing ["registration","suggestion","voting"],
+ * which silently closed the form the moment the jam started: registration_close
+ * is the END of the jam, but once jam_start passes the phase becomes
+ * "jam_active", so the page showed "التسجيل مغلق" for the whole weekend while the
+ * API happily kept accepting signups. Deriving the gate from the same function
+ * the API uses means the two can't drift apart again.
+ */
+function RegistrationGate({ children, fallback }: { children: React.ReactNode; fallback: React.ReactNode }) {
+  const [open, setOpen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const update = () => setOpen(isRegistrationOpen());
+    update();
+    const id = setInterval(update, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (open === null) return null; // avoid an SSR/CSR mismatch on the gate
+  return <>{open ? children : fallback}</>;
+}
 
 export default function RegisterPage() {
   const { tr } = useLocale();
@@ -19,8 +45,7 @@ export default function RegisterPage() {
       >
         {tr("register_team_note")}
       </div>
-      <PhaseGate
-        allow={["registration", "suggestion", "voting"]}
+      <RegistrationGate
         fallback={
           <div className="card-glow p-8 text-center text-[color:var(--color-muted)]">
             {tr("register_closed")}
@@ -28,7 +53,7 @@ export default function RegisterPage() {
         }
       >
         <RegisterForm />
-      </PhaseGate>
+      </RegistrationGate>
     </section>
   );
 }

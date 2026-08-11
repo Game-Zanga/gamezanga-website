@@ -574,7 +574,7 @@ The wide logo is tinted through its own alpha channel (canvas `source-in`), the 
 hero uses via CSS `mask-image`. Text is optically centred using `measureText` bounding-box metrics
 rather than a fixed offset, because Cairo's Arabic glyphs sit low in the em box.
 
-### `docs/media-kit.html` + `docs/Game-Zanga-Media-Kit-2026.pdf`
+### `docs/media-kit.html` + `docs/Game-Zanga-Media-Kit-2026.pdf` + `.docx`
 Bilingual (Arabic-primary RTL, English as explicit LTR islands) partner/sponsor profile: audience
 numbers, country/age/skill breakdowns, tool-fit cards, collaboration options, direct contact.
 
@@ -588,6 +588,14 @@ numbers, country/age/skill breakdowns, tool-fit cards, collaboration options, di
 - The PDF is rendered with Puppeteer (`preferCSSPageSize: true`, `emulateMediaType("print")`,
   awaiting `document.fonts.ready`). Puppeteer is **not** a project dependency — install it in a
   scratch dir outside the repo when regenerating.
+- **`Game-Zanga-Media-Kit-2026.docx`** is the editable version (for Google Docs / Word), built by
+  `scripts/build-media-kit-docx.mjs` with the `docx` npm package — also **not** a project
+  dependency, so `npm install docx` in a scratch dir to regenerate. It is a deliberate re-cut, not
+  a conversion: light print palette (a dark-background Word file is unusable to edit or print), the
+  CSS bar charts re-expressed as real tables, and RTL carried by `bidirectional` paragraphs +
+  `rightToLeft` runs with the English blocks as LTR islands. The logo PNG is a white-on-alpha CSS
+  mask, so it must be **tinted before embedding** or it lands invisible on a white page.
+  Update the figures here whenever `media-kit.html` changes — the two are not linked.
 
 ### `scripts/add-theme-suggestions.mjs`
 Bulk-inserts organiser-curated themes into the review queue as pending (`approved: null`,
@@ -777,6 +785,8 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 │   ├── verify-rls.mjs               # anon-key RLS audit (read/write/delete blocked?)
 │   ├── add-theme-suggestions.mjs    # bulk-insert curated themes as pending; --dry-run; see below
 │   ├── media-kit-stats.mjs          # read-only participant stats for the media kit
+│   ├── build-og-image.py            # renders public/og.png (social share card)
+│   ├── build-media-kit-docx.mjs     # renders the editable .docx media kit
 │   ├── find-spam-patterns.mjs / recent-ed14.mjs / check-state.mjs / check-typos.mjs / fix-typos.mjs
 │   └── legacy-data/                 # gitignored — legacy CSVs (personal data, never commit)
 ├── docs/                            # Standalone deliverables — not part of the Next.js build
@@ -893,6 +903,10 @@ Each year, the routine is:
    - `social-post-generator.html` — update the default badge/tagline/dates in the Content panel.
    - `media-kit.html` — re-run `scripts/media-kit-stats.mjs`, hand-update the figures and the
      `PAST_EDITIONS`-derived counts, then re-render the PDF with Puppeteer.
+   - `public/og.png` — the card every shared link renders. Re-run
+     `python3 scripts/build-og-image.py` after changing the edition number or jam dates
+     (it bakes both in as text). The surrounding `<meta>` tags in `app/layout.tsx` derive
+     themselves from `JAM_CONFIG` and need no edit.
 7. **Consider `MAINTENANCE_MODE`** during the pre-launch window if bots return; the spam blocklist (`blocklist:names` in Upstash) persists across editions and can be pruned via the Upstash console.
 
 Everything else stays the same.
