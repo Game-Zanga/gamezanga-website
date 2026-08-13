@@ -22,6 +22,10 @@ export const JAM_CONFIG = {
   itchio_url: "https://itch.io/jam/gamezanga14",
   discord_url: "https://discord.gg/xvxEPtrzgu",
 
+  // Theme-announcement video. Just the YouTube ID — the home page builds the
+  // youtube-nocookie embed URL from it. Leave "" to hide the player entirely.
+  announcement_video_id: "NDm79oD9Aa0",
+
   // Social
   twitter_url: "https://twitter.com/GameZanga",
   youtube_url: "https://www.youtube.com/@gamezanga",
@@ -30,8 +34,8 @@ export const JAM_CONFIG = {
   facebook_url: "https://www.facebook.com/GameZanga",
 
   // The announced theme — leave "" until announcement.
-  announced_theme_ar: "",
-  announced_theme_en: "",
+  announced_theme_ar: "أحلام",
+  announced_theme_en: "Dreams",
 
   max_suggestions_per_user: 3,
   themes_in_voting: 10,

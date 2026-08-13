@@ -114,6 +114,16 @@ export const t = {
   suggest_submitted: { ar: "تم استلام اقتراحاتك.", en: "Your suggestions were received." },
   suggest_remaining: { ar: "متبقي لك", en: "Remaining" },
 
+  // Jam-live banner (home page, from theme announcement through the jam)
+  jam_live_now: { ar: "الزنقة شغّالة الآن", en: "The jam is live" },
+  theme_announced_label: { ar: "الثيم المُعلَن", en: "The Announced Theme" },
+  watch_announcement: { ar: "شاهد إعلان الثيم", en: "Watch the theme announcement" },
+  submit_your_game: { ar: "ارفع لعبتك على itch.io", en: "Submit your game on itch.io" },
+  submission_deadline: { ar: "آخر موعد للتسليم", en: "Submission deadline" },
+  jam_ended_browse: { ar: "انتهت الزنقة — شاهد الألعاب المشاركة", en: "The jam has ended — browse the entries" },
+  view_entries: { ar: "شاهد الألعاب على itch.io", en: "Browse entries on itch.io" },
+  join_discord_cta: { ar: "انضم للديسكورد", en: "Join the Discord" },
+
   vote_heading: { ar: "التصويت على الثيمات", en: "Vote on Themes" },
   vote_intro: {
     ar: "صوّت على كل ثيم في القائمة أدناه. يمكنك تغيير تصويتك في أي وقت خلال فترة التصويت.",

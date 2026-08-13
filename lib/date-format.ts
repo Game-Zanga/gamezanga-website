@@ -86,6 +86,42 @@ export function formatArabicDateRange(startISO: string, endISO: string): string 
   return `${formatArabicSide(start, false)} – ${formatArabicSide(end, true)}`;
 }
 
+/**
+ * A single deadline moment, e.g. "الأحد ١٦ اغسطس (آب)، ١٠:٠٠ مساءً".
+ * Used for the submission cutoff on the home page during the jam.
+ */
+export function formatArabicDeadline(iso: string): string {
+  const d = new Date(iso);
+  const { weekday, day, monthIdx } = getRiyadhParts(d);
+  const m = MONTHS_AR[monthIdxSafe(monthIdx)]!;
+  const wd = WEEKDAYS_AR[weekday] ?? weekday;
+
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Riyadh",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(d);
+  const hour = time.find((p) => p.type === "hour")?.value ?? "";
+  const minute = time.find((p) => p.type === "minute")?.value ?? "";
+  const period = time.find((p) => p.type === "dayPeriod")?.value === "AM" ? "صباحاً" : "مساءً";
+
+  return `${wd} ${toArabicDigits(day)} ${m.standard} (${m.levantine})، ${toArabicDigits(hour)}:${toArabicDigits(minute)} ${period}`;
+}
+
+/** English equivalent of formatArabicDeadline. */
+export function formatEnglishDeadline(iso: string): string {
+  return new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Riyadh",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(iso));
+}
+
 /** English fallback — unchanged from before. */
 export function formatEnglishDateRange(startISO: string, endISO: string): string {
   const fmt = new Intl.DateTimeFormat("en", {

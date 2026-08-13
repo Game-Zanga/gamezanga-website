@@ -21,7 +21,10 @@ const cspDirectives = [
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com",
   // Turnstile renders its challenge iframe — explicitly allow it as a frame source.
-  "frame-src https://challenges.cloudflare.com",
+  // youtube-nocookie hosts the theme-announcement embed on the home page; without
+  // it here the player is blocked by CSP and renders as an empty box in
+  // production only (dev is not served these headers, so it looks fine locally).
+  "frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
