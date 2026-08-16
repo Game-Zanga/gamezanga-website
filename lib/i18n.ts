@@ -124,6 +124,32 @@ export const t = {
   view_entries: { ar: "شاهد الألعاب على itch.io", en: "Browse entries on itch.io" },
   join_discord_cta: { ar: "انضم للديسكورد", en: "Join the Discord" },
 
+  // Play-and-rate window (from submission close to rating_close)
+  rating_open_now: { ar: "التقييم مفتوح الآن", en: "Rating is open" },
+  rating_heading: { ar: "انتهت الزنقة — وقت اللعب والتقييم", en: "The jam is over — time to play and rate" },
+  rating_intro: {
+    ar: "الألعاب صارت على itch.io. جرّبها، قيّمها، واترك ملاحظاتك لأصحابها — التقييم هو اللي يحدد الترتيب النهائي.",
+    en: "The games are live on itch.io. Play them, rate them, and leave feedback — the ratings decide the final ranking.",
+  },
+  rating_cta: { ar: "العب وقيّم الألعاب", en: "Play & rate the games" },
+  rating_closes: { ar: "التقييم يغلق", en: "Rating closes" },
+  rating_rules_heading: { ar: "كيف يشتغل التقييم؟", en: "How rating works" },
+  rating_rule_who: {
+    ar: "التقييم متاح للمشاركين فقط — من رفع لعبة أو كان ضمن فريق رفع لعبة.",
+    en: "Only participants can rate — submitters and their team contributors.",
+  },
+  rating_rule_queue: {
+    ar: "لازم تقيّم ٥ ألعاب عشوائية من الطابور أولاً، وبعدها تنفتح لك حرية اختيار أي لعبة تقيّمها.",
+    en: "You must rate 5 random games from the queue first; after that you're free to pick any game you like.",
+  },
+  rating_rule_fair: {
+    ar: "الطابور موجود حتى تحصل كل لعبة على عدد عادل من التقييمات.",
+    en: "The queue exists so every game gets a fair number of ratings.",
+  },
+  countdown_to_deadline: { ar: "الوقت المتبقي لتسليم اللعبة", en: "Time left to submit" },
+  countdown_to_rating_end: { ar: "الوقت المتبقي للتقييم", en: "Time left to rate" },
+  jam_finished: { ar: "انتهت الزنقة — شكراً لكم جميعاً", en: "The jam has ended — thank you all" },
+
   vote_heading: { ar: "التصويت على الثيمات", en: "Vote on Themes" },
   vote_intro: {
     ar: "صوّت على كل ثيم في القائمة أدناه. يمكنك تغيير تصويتك في أي وقت خلال فترة التصويت.",

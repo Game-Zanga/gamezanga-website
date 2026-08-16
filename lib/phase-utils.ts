@@ -53,6 +53,24 @@ export function isVotingOpen(now: Date = new Date()): boolean {
   );
 }
 
+/**
+ * The itch.io play-and-rate window: opens when submissions close and runs to
+ * `rating_close`. Deliberately not a `Phase` — `getCurrentPhase()` reports
+ * `jam_ended` for everything after the jam, and this splits that tail into
+ * "rating is live" vs "it's all over" without disturbing the other gates.
+ */
+export function isRatingOpen(now: Date = new Date()): boolean {
+  const t = now.getTime();
+  return (
+    t >= new Date(JAM_CONFIG.jam_end).getTime() &&
+    t < new Date(JAM_CONFIG.rating_close).getTime()
+  );
+}
+
+export function isRatingOver(now: Date = new Date()): boolean {
+  return now.getTime() >= new Date(JAM_CONFIG.rating_close).getTime();
+}
+
 export function isThemeAnnounced(now: Date = new Date()): boolean {
   return now.getTime() >= new Date(JAM_CONFIG.theme_announced).getTime();
 }

@@ -4,8 +4,16 @@ import { useLocale } from "@/components/LocaleProvider";
 import { PhaseGate } from "@/components/ui/PhaseGate";
 import { JAM_CONFIG } from "@/lib/jam-config";
 import { formatArabicDeadline, formatEnglishDeadline } from "@/lib/date-format";
-import { getCurrentPhase } from "@/lib/phase-utils";
+import { isRatingOpen, isRatingOver } from "@/lib/phase-utils";
 import { useEffect, useState } from "react";
+
+type Stage = "submit" | "rate" | "over";
+
+function currentStage(now = new Date()): Stage {
+  if (isRatingOver(now)) return "over";
+  if (isRatingOpen(now)) return "rate";
+  return "submit";
+}
 
 /**
  * The home page's headline block once the theme is out: theme word, the
@@ -24,10 +32,12 @@ export function ThemeReveal() {
 
 function RevealBody() {
   const { locale, tr } = useLocale();
-  const [ended, setEnded] = useState(false);
+  // null until mounted so the server and client agree; the interval flips the
+  // block from "submit" to "rate" on its own the moment submissions close.
+  const [stage, setStage] = useState<Stage | null>(null);
 
   useEffect(() => {
-    const update = () => setEnded(getCurrentPhase() === "jam_ended");
+    const update = () => setStage(currentStage());
     update();
     const id = setInterval(update, 30_000);
     return () => clearInterval(id);
@@ -38,10 +48,18 @@ function RevealBody() {
   const primary = locale === "ar" ? themeAr : themeEn || themeAr;
   const secondary = locale === "ar" ? themeEn : themeAr;
 
-  const deadline =
-    locale === "ar"
-      ? formatArabicDeadline(JAM_CONFIG.jam_end)
-      : formatEnglishDeadline(JAM_CONFIG.jam_end);
+  if (stage === null) return null;
+
+  const fmt = (iso: string) =>
+    locale === "ar" ? formatArabicDeadline(iso) : formatEnglishDeadline(iso);
+
+  const deadline = fmt(JAM_CONFIG.jam_end);
+  const ratingDeadline = fmt(JAM_CONFIG.rating_close);
+
+  const pill =
+    stage === "rate" ? tr("rating_open_now")
+    : stage === "over" ? tr("jam_ended_browse")
+    : tr("jam_live_now");
 
   return (
     <section className="max-w-4xl mx-auto px-4 pt-4 pb-16">
@@ -49,12 +67,16 @@ function RevealBody() {
         {/* live pill */}
         <div className="flex justify-center mb-6">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)]/60 text-xs text-[color:var(--color-muted)]">
-            {!ended && (
+            {stage !== "over" && (
               <span className="w-2 h-2 rounded-full bg-[color:var(--color-success)] animate-pulse" />
             )}
-            {ended ? tr("jam_ended_browse") : tr("jam_live_now")}
+            {pill}
           </span>
         </div>
+
+        {stage === "rate" && (
+          <p className="text-center text-xl md:text-2xl font-bold mb-6">{tr("rating_heading")}</p>
+        )}
 
         {/* the theme */}
         <div className="text-center mb-8">
@@ -100,7 +122,13 @@ function RevealBody() {
           </div>
         )}
 
-        {/* submission CTA */}
+        {stage === "rate" && (
+          <p className="text-center text-[color:var(--color-muted)] leading-relaxed mb-8 max-w-2xl mx-auto">
+            {tr("rating_intro")}
+          </p>
+        )}
+
+        {/* primary CTA — submit during the jam, play-and-rate afterwards */}
         <div className="flex flex-col items-center gap-4">
           <a
             href={JAM_CONFIG.itchio_url}
@@ -108,15 +136,23 @@ function RevealBody() {
             rel="noreferrer"
             className="btn btn-primary text-base md:text-lg w-full sm:w-auto text-center"
           >
-            {ended ? tr("view_entries") : tr("submit_your_game")}
+            {stage === "rate" ? tr("rating_cta") : stage === "over" ? tr("view_entries") : tr("submit_your_game")}
           </a>
 
-          {!ended && (
+          {stage === "submit" && (
             <div className="text-center text-sm text-[color:var(--color-muted)]">
               <span className="font-medium text-[color:var(--color-fg)]">
                 {tr("submission_deadline")}:
               </span>{" "}
               {deadline}
+              <div className="text-xs mt-1">{tr("ksa_time")}</div>
+            </div>
+          )}
+
+          {stage === "rate" && (
+            <div className="text-center text-sm text-[color:var(--color-muted)]">
+              <span className="font-medium text-[color:var(--color-fg)]">{tr("rating_closes")}:</span>{" "}
+              {ratingDeadline}
               <div className="text-xs mt-1">{tr("ksa_time")}</div>
             </div>
           )}
@@ -130,6 +166,33 @@ function RevealBody() {
             {tr("join_discord_cta")}
           </a>
         </div>
+
+        {/* itch.io's rating rules trip people up every year — spell them out */}
+        {stage === "rate" && (
+          <div
+            className="mt-8 rounded-xl border p-5 md:p-6"
+            style={{
+              borderColor: "color-mix(in oklab, var(--color-accent) 40%, transparent)",
+              background: "color-mix(in oklab, var(--color-accent) 7%, transparent)",
+            }}
+          >
+            <div className="font-bold mb-3">{tr("rating_rules_heading")}</div>
+            <ul className="space-y-2.5 text-sm text-[color:var(--color-muted)] leading-relaxed">
+              {[tr("rating_rule_who"), tr("rating_rule_queue"), tr("rating_rule_fair")].map((line, i) => (
+                <li key={i} className="flex gap-3">
+                  <span
+                    className="shrink-0 w-5 h-5 mt-0.5 rounded-full grid place-items-center text-[11px] font-bold text-white"
+                    style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))" }}
+                    aria-hidden
+                  >
+                    {i + 1}
+                  </span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   );

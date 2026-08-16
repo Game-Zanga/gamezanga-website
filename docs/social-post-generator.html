@@ -270,6 +270,7 @@
       <h2>Making</h2>
       <div class="chips" id="modes">
         <button type="button" class="chip" data-mode="post" aria-pressed="true">Social post</button>
+        <button type="button" class="chip" data-mode="theme" aria-pressed="false">Theme reveal</button>
         <button type="button" class="chip" data-mode="avatar" aria-pressed="false">Profile icon</button>
       </div>
     </section>
@@ -296,11 +297,23 @@
         <label for="badge">Edition badge</label>
         <input type="text" id="badge" value="النسخة ١٤" dir="rtl">
       </div>
-      <div class="field">
+      <div class="field" id="fieldThemeLabel" hidden>
+        <label for="themeLabel">Theme label</label>
+        <input type="text" id="themeLabel" value="الثيم المُعلَن" dir="rtl">
+      </div>
+      <div class="field" id="fieldThemeAr" hidden>
+        <label for="themeAr">Theme — Arabic</label>
+        <input type="text" id="themeAr" value="أحلام" dir="rtl">
+      </div>
+      <div class="field" id="fieldThemeEn" hidden>
+        <label for="themeEn">Theme — English</label>
+        <input type="text" id="themeEn" value="Dreams" dir="ltr">
+      </div>
+      <div class="field" id="fieldTagline">
         <label for="tagline">Tagline</label>
         <input type="text" id="tagline" value="فعالية تطوير الألعاب العربية" dir="rtl">
       </div>
-      <div class="field">
+      <div class="field" id="fieldMeta">
         <label for="meta">Meta line</label>
         <input type="text" id="meta" value="٧٢ ساعة — ثيم سرّي — أونلاين بالكامل" dir="rtl">
       </div>
@@ -442,7 +455,10 @@
     ]
   };
 
-  let mode = "post"; // "post" | "avatar"
+  // The theme card is posted to the same places as a normal post.
+  PRESETS.theme = PRESETS.post;
+
+  let mode = "post"; // "post" | "theme" | "avatar"
 
   const CAPTIONS = [
     {
@@ -459,6 +475,21 @@
     }
   ];
 
+  // Captions for the theme-reveal card. Kept separate from CAPTIONS so the
+  // carousel only ever offers copy that matches what is on the canvas.
+  const THEME_CAPTIONS = [
+    {
+      label: "Theme reveal",
+      text: "\u062a\u0645 \u0627\u0644\u0625\u0639\u0644\u0627\u0646! \ud83c\udf9e\ufe0f\n\n\u062b\u064a\u0645 \u0632\u0646\u0642\u0629 \u0627\u0644\u0623\u0644\u0639\u0627\u0628 \u0661\u0664 \u0647\u0648: \u00ab\u0623\u062d\u0644\u0627\u0645\u00bb\n\n\u0627\u0644\u0632\u0646\u0642\u0629 \u0628\u062f\u0623\u062a \u0631\u0633\u0645\u064a\u0627\u064b \u2014 \u0663\u0667 \u0633\u0627\u0639\u0629 \u0645\u0646 \u0627\u0644\u0622\u0646 \u0648\u0627\u0644\u0625\u0628\u062f\u0627\u0639 \u0639\u0644\u064a\u0643\u0645. \u0627\u0628\u0646\u0648\u0627 \u0644\u0639\u0628\u062a\u0643\u0645 \u062d\u0648\u0644 \u0627\u0644\u062b\u064a\u0645\u060c \u0644\u062d\u0627\u0644\u0643\u0645 \u0623\u0648 \u0645\u0639 \u0641\u0631\u064a\u0642.\n\n\u2b50 \u0627\u0644\u062a\u0633\u0644\u064a\u0645: \u0627\u0644\u0623\u062d\u062f \u0661\u0666 \u0627\u063a\u0633\u0637\u0633\u060c \u0661\u0660 \u0645\u0633\u0627\u0621\u064b \u0628\u062a\u0648\u0642\u064a\u062a \u0627\u0644\u0633\u0639\u0648\u062f\u064a\u0629\n\u2b50 \u0627\u0644\u0631\u0641\u0639 \u0639\u0644\u0649 itch.io \u2014 \u0627\u0644\u0631\u0627\u0628\u0637 \u0641\u064a \u0627\u0644\u0628\u0627\u064a\u0648\n\n\u0634\u0627\u0647\u062f \u0641\u064a\u062f\u064a\u0648 \u0627\u0644\u0625\u0639\u0644\u0627\u0646 \u0643\u0627\u0645\u0644\u0627\u064b \u0639\u0644\u0649 \u0642\u0646\u0627\u062a\u0646\u0627.\n\n#\u0632\u0646\u0642\u0629_\u0627\u0644\u0623\u0644\u0639\u0627\u0628 #GameZanga #\u062a\u0637\u0648\u064a\u0631_\u0627\u0644\u0623\u0644\u0639\u0627\u0628 #gamedev #gamejam"
+    },
+    {
+      label: "Mid-jam push",
+      text: "\u0646\u0635 \u0627\u0644\u0637\u0631\u064a\u0642 \ud83d\udd25\n\n\u0627\u0644\u062b\u064a\u0645 \u00ab\u0623\u062d\u0644\u0627\u0645\u00bb \u0648\u0627\u0644\u0645\u0632\u0646\u0648\u0642\u064a\u0646 \u0634\u063a\u0627\u0644\u064a\u0646. \u0644\u0633\u0651\u0647 \u0641\u064a \u0648\u0642\u062a \u2014 \u0648\u0644\u0648 \u0645\u0627 \u0633\u062c\u0651\u0644\u062a \u0628\u0639\u062f\u060c \u0627\u0644\u062a\u0633\u062c\u064a\u0644 \u0645\u0641\u062a\u0648\u062d \u0644\u0622\u062e\u0631 \u0627\u0644\u0632\u0646\u0642\u0629.\n\n\u0627\u0644\u062a\u0633\u0644\u064a\u0645 \u064a\u0642\u0641\u0644 \u0627\u0644\u0623\u062d\u062f \u0661\u0660 \u0645\u0633\u0627\u0621\u064b.\n\n#\u0632\u0646\u0642\u0629_\u0627\u0644\u0623\u0644\u0639\u0627\u0628 #GameZanga #gamedev"
+    }
+  ];
+
+  const activeCaptions = () => (mode === "theme" ? THEME_CAPTIONS : CAPTIONS);
+
   // ---------- element refs ----------
   const $ = (id) => document.getElementById(id);
   const canvas = $("preview");
@@ -468,6 +499,10 @@
     w: $("w"), h: $("h"),
     badge: $("badge"), tagline: $("tagline"), meta: $("meta"),
     dates: $("dates"), cta: $("cta"),
+    themeLabel: $("themeLabel"), themeAr: $("themeAr"), themeEn: $("themeEn"),
+    fieldTagline: $("fieldTagline"), fieldMeta: $("fieldMeta"),
+    fieldThemeLabel: $("fieldThemeLabel"), fieldThemeAr: $("fieldThemeAr"),
+    fieldThemeEn: $("fieldThemeEn"),
     tint: $("tint"), glow: $("glow"), grid: $("grid"),
     rule: $("rule"), mark: $("mark"),
     avBg: $("avBg"), avZoom: $("avZoom"), avZoomOut: $("avZoomOut"),
@@ -544,11 +579,8 @@
     c.font = weight + " " + size + "px Cairo, ui-sans-serif, system-ui, sans-serif";
   }
 
-  // ---------- the poster ----------
-  function renderPost(c, W, H) {
-    const K = Math.min(W, H);
-
-    // ---- background ----
+  // Ground, corner glows and grid — shared by the poster and the theme card.
+  function paintBackdrop(c, W, H, K) {
     c.fillStyle = BG;
     c.fillRect(0, 0, W, H);
 
@@ -568,6 +600,59 @@
       for (let y = step; y < H; y += step) { c.moveTo(0, y + 0.5); c.lineTo(W, y + 0.5); }
       c.stroke();
     }
+  }
+
+  // Pill-shaped edition badge with the leading status dot. Shared, so the
+  // optical-centering fix for Cairo's Arabic metrics lives in exactly one place.
+  function drawBadgePill(c, cx, y, fs, label, lineW) {
+    setFont(c, 700, fs);
+    c.direction = "rtl";
+    c.textAlign = "center";
+    const tw = c.measureText(label).width;
+    const padX = fs * 0.95, padY = fs * 0.55;
+    const dotR = fs * 0.20, dotGap = fs * 0.55;
+    const pillW = tw + padX * 2 + dotR * 2 + dotGap;
+    const pillH = fs + padY * 2;
+    const px = cx - pillW / 2, py = y;
+
+    c.save();
+    c.beginPath();
+    c.roundRect(px, py, pillW, pillH, pillH / 2);
+    c.fillStyle = "rgba(24,24,38,0.62)";
+    c.fill();
+    c.lineWidth = Math.max(1, lineW);
+    c.strokeStyle = "#2a2a45";
+    c.stroke();
+    c.restore();
+
+    // RTL: the status dot leads on the right, matching the site's badge.
+    const dotX = px + pillW - padX * 0.75 - dotR;
+    c.beginPath();
+    c.arc(dotX, py + pillH / 2, dotR, 0, Math.PI * 2);
+    c.fillStyle = ACCENT;
+    c.fill();
+
+    // Centre the label horizontally in the space left of the dot, and optically
+    // centre it vertically using real glyph metrics. Cairo's Arabic glyphs sit
+    // low in the em box (the ascent is reserved for tall Latin letters), so
+    // textBaseline:"top" alone renders the label bottom-heavy.
+    const textLeft = px + padX;
+    const textRight = dotX - dotR - dotGap;
+    const prevBaseline = c.textBaseline;
+    c.textBaseline = "alphabetic";
+    const m = c.measureText(label);
+    const optical = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+    c.fillStyle = MUTED;
+    c.fillText(label, (textLeft + textRight) / 2, py + pillH / 2 + optical);
+    c.textBaseline = prevBaseline;
+
+    return pillH;
+  }
+
+  // ---------- the poster ----------
+  function renderPost(c, W, H) {
+    const K = Math.min(W, H);
+    paintBackdrop(c, W, H, K);
 
     // ---- measure the stack at base scale, then fit it to the canvas ----
     const base = {
@@ -622,48 +707,7 @@
 
     // ---- edition badge (pill) ----
     if (has.badge) {
-      const fs = f(base.badge);
-      setFont(c, 700, fs);
-      c.direction = "rtl";
-      const label = els.badge.value.trim();
-      const tw = c.measureText(label).width;
-      const padX = fs * 0.95, padY = fs * 0.55;
-      const dotR = fs * 0.20, dotGap = fs * 0.55;
-      const pillW = tw + padX * 2 + dotR * 2 + dotGap;
-      const pillH = fs + padY * 2;
-      const px = cx - pillW / 2, py = y;
-
-      c.save();
-      c.beginPath();
-      c.roundRect(px, py, pillW, pillH, pillH / 2);
-      c.fillStyle = "rgba(24,24,38,0.62)";
-      c.fill();
-      c.lineWidth = Math.max(1, f(K * 0.0016));
-      c.strokeStyle = "#2a2a45";
-      c.stroke();
-      c.restore();
-
-      // RTL: the status dot leads on the right, matching the site's badge.
-      const dotX = px + pillW - padX * 0.75 - dotR;
-      c.beginPath();
-      c.arc(dotX, py + pillH / 2, dotR, 0, Math.PI * 2);
-      c.fillStyle = ACCENT;
-      c.fill();
-
-      // Centre the label horizontally in the space left of the dot, and
-      // optically centre it vertically using real glyph metrics. Cairo's Arabic
-      // glyphs sit low in the em box (the ascent is reserved for tall Latin
-      // letters), so textBaseline:"top" alone renders the label bottom-heavy.
-      const textLeft = px + padX;
-      const textRight = dotX - dotR - dotGap;
-      const prevBaseline = c.textBaseline;
-      c.textBaseline = "alphabetic";
-      const m = c.measureText(label);
-      const optical = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
-      c.fillStyle = MUTED;
-      c.fillText(label, (textLeft + textRight) / 2, py + pillH / 2 + optical);
-      c.textBaseline = prevBaseline;
-
+      const pillH = drawBadgePill(c, cx, y, f(base.badge), els.badge.value.trim(), f(K * 0.0016));
       y += pillH + f(gap.afterBadge);
     }
 
@@ -740,6 +784,190 @@
       c.globalAlpha = 0.5;
       const tinted = tintedLogo(logoSq, mw, mh);
       c.drawImage(tinted, W - pad - mw, H - pad - mh, mw, mh);
+      c.restore();
+    }
+
+    c.direction = "ltr";
+  }
+
+  // ---------- the theme reveal card ----------
+  // Same brand furniture as the poster, but the composition is inverted: the
+  // theme word is the hero and the wordmark shrinks to a credit. Used for the
+  // announcement post the moment voting closes.
+  function renderTheme(c, W, H) {
+    const K = Math.min(W, H);
+    paintBackdrop(c, W, H, K);
+
+    const badge = els.badge.value.trim();
+    const label = els.themeLabel.value.trim();
+    const themeAr = els.themeAr.value.trim();
+    const themeEn = els.themeEn.value.trim();
+    const dates = els.dates.value.trim();
+    const cta = els.cta.value.trim();
+
+    const has = {
+      badge: !!badge, label: !!label, themeAr: !!themeAr,
+      themeEn: !!themeEn, dates: !!dates, cta: !!cta
+    };
+
+    const logoAspect = logoWide ? (logoWide.naturalWidth / logoWide.naturalHeight) : 4.89;
+    let logoW = W * 0.42;
+    let logoH = logoW / logoAspect;
+
+    const base = {
+      badge: K * 0.026,
+      label: K * 0.026,
+      themeAr: K * 0.155,
+      themeEn: K * 0.040,
+      dates: K * 0.028,
+      cta: K * 0.028
+    };
+
+    // The hero word is user input of unknown length — measure it and shrink the
+    // type until it fits, so a long theme like "كلّنا سجناء" can't run off the canvas.
+    if (has.themeAr) {
+      setFont(c, 900, base.themeAr);
+      c.direction = "rtl";
+      const tw = c.measureText(themeAr).width;
+      const maxW = W * 0.84;
+      if (tw > maxW && tw > 0) base.themeAr *= maxW / tw;
+    }
+
+    // Real glyph box, not the em box — Arabic sits low and this keeps the
+    // spacing above and below the hero word visually even.
+    //
+    // actualBoundingBoxAscent/Descent are reported RELATIVE TO THE CURRENT
+    // textBaseline, so this must match the baseline the word is drawn with
+    // ("alphabetic"). Measuring while the context still carried "top" from a
+    // previous render returned a tiny ascent and the label crashed into the word.
+    setFont(c, 900, base.themeAr);
+    c.textBaseline = "alphabetic";
+    const heroM = has.themeAr ? c.measureText(themeAr) : null;
+    const heroAsc = heroM ? (heroM.actualBoundingBoxAscent || base.themeAr * 0.72) : 0;
+    const heroDesc = heroM ? (heroM.actualBoundingBoxDescent || base.themeAr * 0.22) : 0;
+    const heroH = heroAsc + heroDesc;
+
+    const gap = {
+      afterBadge: K * 0.042,
+      afterLogo: K * 0.055,
+      afterLabel: K * 0.028,
+      afterHero: K * 0.030,
+      afterThemeEn: K * 0.055,
+      afterDates: K * 0.040
+    };
+
+    let stackH = logoH + gap.afterLogo;
+    if (has.badge) stackH += base.badge * 2.1 + gap.afterBadge;
+    if (has.label) stackH += base.label * 1.35 + gap.afterLabel;
+    if (has.themeAr) stackH += heroH + gap.afterHero;
+    if (has.themeEn) stackH += base.themeEn * 1.35 + gap.afterThemeEn;
+    if (has.dates) stackH += base.dates * 1.35 + gap.afterDates;
+    if (has.cta) stackH += base.cta * 1.6;
+
+    let S = clamp((H * 0.62) / stackH, 0.7, 1.6);
+    S = Math.min(S, (W * 0.86) / logoW);
+    const f = (n) => n * S;
+
+    logoW = f(logoW); logoH = f(logoH);
+    let y = (H - f(stackH)) / 2;
+
+    c.textAlign = "center";
+    c.textBaseline = "top";
+    const cx = W / 2;
+
+    if (has.badge) {
+      y += drawBadgePill(c, cx, y, f(base.badge), badge, f(K * 0.0016)) + f(gap.afterBadge);
+    }
+
+    if (logoWide) {
+      c.drawImage(tintedLogo(logoWide, logoW, logoH), cx - logoW / 2, y, logoW, logoH);
+    }
+    y += logoH + f(gap.afterLogo);
+
+    if (has.label) {
+      const fs = f(base.label);
+      setFont(c, 700, fs);
+      c.direction = "rtl";
+      c.fillStyle = MUTED;
+      c.fillText(label, cx, y);
+      y += fs * 1.35 + f(gap.afterLabel);
+    }
+
+    // ---- the theme word ----
+    if (has.themeAr) {
+      const fs = f(base.themeAr);
+      setFont(c, 900, fs);
+      c.direction = "rtl";
+      c.textBaseline = "alphabetic";
+
+      const tw = c.measureText(themeAr).width;
+      const g = c.createLinearGradient(cx - tw / 2, 0, cx + tw / 2, 0);
+      g.addColorStop(0, ACCENT);
+      g.addColorStop(1, ACCENT2);
+
+      // Soft bloom behind the word — the canvas answer to the site's .text-glow.
+      c.save();
+      c.shadowColor = "rgba(179,71,255,0.55)";
+      c.shadowBlur = fs * 0.42;
+      c.fillStyle = els.tint.value === "white" ? FG : g;
+      c.fillText(themeAr, cx, y + f(heroAsc));
+      c.restore();
+
+      c.textBaseline = "top";
+      y += f(heroH) + f(gap.afterHero);
+    }
+
+    if (has.themeEn) {
+      const fs = f(base.themeEn);
+      setFont(c, 500, fs);
+      c.direction = "ltr";
+      c.fillStyle = MUTED;
+      c.fillText(themeEn, cx, y);
+      y += fs * 1.35 + f(gap.afterThemeEn);
+    }
+
+    if (has.dates) {
+      const fs = f(base.dates);
+      setFont(c, 700, fs);
+      c.direction = "rtl";
+      c.fillStyle = FG;
+      c.fillText(dates, cx, y);
+      y += fs * 1.35;
+
+      if (els.rule.checked) {
+        const rw = Math.min(W * 0.42, f(K * 0.34));
+        const rh = Math.max(2, f(K * 0.005));
+        const ry = y + f(K * 0.012);
+        const g = c.createLinearGradient(cx - rw / 2, 0, cx + rw / 2, 0);
+        g.addColorStop(0, "rgba(179,71,255,0)");
+        g.addColorStop(0.5, ACCENT);
+        g.addColorStop(1, "rgba(255,94,58,0)");
+        c.fillStyle = g;
+        c.beginPath();
+        c.roundRect(cx - rw / 2, ry, rw, rh, rh / 2);
+        c.fill();
+      }
+      y += f(gap.afterDates);
+    }
+
+    if (has.cta) {
+      const fs = f(base.cta);
+      setFont(c, 800, fs);
+      c.direction = "ltr";
+      const g = c.createLinearGradient(cx - W * 0.2, 0, cx + W * 0.2, 0);
+      g.addColorStop(0, ACCENT);
+      g.addColorStop(1, ACCENT2);
+      c.fillStyle = g;
+      c.fillText(cta, cx, y);
+    }
+
+    if (els.mark.checked && logoSq) {
+      const mw = K * 0.075;
+      const mh = mw * (logoSq.naturalHeight / logoSq.naturalWidth);
+      const pad = K * 0.05;
+      c.save();
+      c.globalAlpha = 0.5;
+      c.drawImage(tintedLogo(logoSq, mw, mh), W - pad - mw, H - pad - mh, mw, mh);
       c.restore();
     }
 
@@ -826,6 +1054,7 @@
   // Dispatch to whichever artwork the current mode calls for.
   function render(c, W, H, opts) {
     if (mode === "avatar") renderAvatar(c, W, H, opts);
+    else if (mode === "theme") renderTheme(c, W, H);
     else renderPost(c, W, H);
   }
 
@@ -881,7 +1110,7 @@
   function filename() {
     let { w, h } = readDims();
     if (mode === "avatar") h = w;
-    const kind = mode === "avatar" ? "avatar" : "post";
+    const kind = mode === "avatar" ? "avatar" : (mode === "theme" ? "theme" : "post");
     return "gamezanga-" + kind + "-" + w + "x" + h + ".png";
   }
 
@@ -917,11 +1146,23 @@
     });
 
     const isAvatar = mode === "avatar";
+    const isTheme = mode === "theme";
     els.contentPanel.hidden = isAvatar;   // no text lives on an avatar
     els.captionCard.hidden = isAvatar;
-    els.postStyle.hidden = isAvatar;
+    els.postStyle.hidden = isAvatar;      // the theme card uses the same styling
     els.avatarStyle.hidden = !isAvatar;
     els.h.disabled = isAvatar;            // square is enforced
+
+    // Swap which text fields are on offer: the theme card replaces the
+    // tagline/meta pair with the theme itself.
+    els.fieldThemeLabel.hidden = !isTheme;
+    els.fieldThemeAr.hidden = !isTheme;
+    els.fieldThemeEn.hidden = !isTheme;
+    els.fieldTagline.hidden = isTheme;
+    els.fieldMeta.hidden = isTheme;
+
+    capIndex = 0;
+    if (!isAvatar) showCaption();
 
     buildPresets();
     const first = PRESETS[mode][0];
@@ -939,7 +1180,8 @@
 
   // ---------- captions ----------
   function showCaption() {
-    const c = CAPTIONS[capIndex];
+    const list = activeCaptions();
+    const c = list[capIndex] || list[0];
     // Highlight hashtags without innerHTML-ing user content.
     els.captionBody.textContent = "";
     c.text.split(/(\s+)/).forEach((tok) => {
@@ -952,7 +1194,7 @@
         els.captionBody.appendChild(document.createTextNode(tok));
       }
     });
-    els.capLabel.textContent = c.label + "  ·  " + (capIndex + 1) + " of " + CAPTIONS.length;
+    els.capLabel.textContent = c.label + "  ·  " + (capIndex + 1) + " of " + list.length;
   }
 
   async function copyText(btn, text) {
@@ -1009,14 +1251,15 @@
   });
 
   $("capPrev").addEventListener("click", () => {
-    capIndex = (capIndex - 1 + CAPTIONS.length) % CAPTIONS.length;
+    const n = activeCaptions().length;
+    capIndex = (capIndex - 1 + n) % n;
     showCaption();
   });
   $("capNext").addEventListener("click", () => {
-    capIndex = (capIndex + 1) % CAPTIONS.length;
+    capIndex = (capIndex + 1) % activeCaptions().length;
     showCaption();
   });
-  $("capCopy").addEventListener("click", (e) => copyText(e.currentTarget, CAPTIONS[capIndex].text));
+  $("capCopy").addEventListener("click", (e) => copyText(e.currentTarget, activeCaptions()[capIndex].text));
 
   // ---------- boot ----------
   function loadImage(src) {

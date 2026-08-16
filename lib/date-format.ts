@@ -104,9 +104,15 @@ export function formatArabicDeadline(iso: string): string {
   }).formatToParts(d);
   const hour = time.find((p) => p.type === "hour")?.value ?? "";
   const minute = time.find((p) => p.type === "minute")?.value ?? "";
-  const period = time.find((p) => p.type === "dayPeriod")?.value === "AM" ? "صباحاً" : "مساءً";
+  const isAM = time.find((p) => p.type === "dayPeriod")?.value === "AM";
+  const period = isAM ? "صباحاً" : "مساءً";
 
-  return `${wd} ${toArabicDigits(day)} ${m.standard} (${m.levantine})، ${toArabicDigits(hour)}:${toArabicDigits(minute)} ${period}`;
+  // "١٢:٠٠ صباحاً" is technically correct for midnight and confusing to read —
+  // deadlines land on the hour often enough to be worth naming properly.
+  let clock = `${toArabicDigits(hour)}:${toArabicDigits(minute)} ${period}`;
+  if (hour === "12" && minute === "00") clock = isAM ? "منتصف الليل" : "الظهر";
+
+  return `${wd} ${toArabicDigits(day)} ${m.standard} (${m.levantine})، ${clock}`;
 }
 
 /** English equivalent of formatArabicDeadline. */

@@ -18,6 +18,10 @@ export const JAM_CONFIG = {
   voting_close: "2026-08-12T00:00:00+03:00",
   theme_announced: "2026-08-13T20:00:00+03:00", // = jam_start
 
+  // itch.io rating window. Opens the moment submissions close (= jam_end) and
+  // runs until this date — must match the jam's "Voting end date" on itch.io.
+  rating_close: "2026-08-23T00:00:00+03:00", // midnight ending Sat 22 Aug
+
   // Links
   itchio_url: "https://itch.io/jam/gamezanga14",
   discord_url: "https://discord.gg/xvxEPtrzgu",
