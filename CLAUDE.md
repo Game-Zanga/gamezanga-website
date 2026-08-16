@@ -97,11 +97,11 @@ export const JAM_CONFIG = {
 
   // Jam dates (Saudi time = UTC+3) — postponed from the original July window.
   jam_start: "2026-08-13T20:00:00+03:00", // Thursday 8pm
-  jam_end:   "2026-08-16T22:00:00+03:00", // Sunday 10pm
+  jam_end:   "2026-08-16T22:30:00+03:00", // Sunday 10:30pm (extended on the night)
 
   // Phase dates
   registration_open:  "2026-05-25T00:00:00+03:00",
-  registration_close: "2026-08-16T22:00:00+03:00", // open through the jam itself
+  registration_close: "2026-08-16T22:30:00+03:00", // = jam_end; open through the jam itself
   suggestion_open:    "2026-05-27T00:00:00+03:00",
   suggestion_close:   "2026-07-22T00:00:00+03:00",
   voting_open:        "2026-07-30T00:00:00+03:00",
