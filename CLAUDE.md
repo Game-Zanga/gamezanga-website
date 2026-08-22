@@ -110,7 +110,7 @@ export const JAM_CONFIG = {
 
   // itch.io play-and-rate window: opens at jam_end, must match the jam's
   // "Voting end date" on itch.io. Drives the home page's rating block.
-  rating_close:       "2026-08-23T00:00:00+03:00",
+  rating_close:       "2026-08-23T20:00:00+03:00",
 
   // Links
   itchio_url:    "https://itch.io/jam/gamezanga14",
