@@ -146,6 +146,17 @@ export const t = {
     ar: "الطابور موجود حتى تحصل كل لعبة على عدد عادل من التقييمات.",
     en: "The queue exists so every game gets a fair number of ratings.",
   },
+  // After rating closes — results are not instant, and games unlock for editing
+  voting_closed_pill: { ar: "انتهى التصويت", en: "Voting has closed" },
+  results_soon_heading: { ar: "النتائج قريباً (خلال الأيام القادمة)", en: "Results coming soon (in the next few days)" },
+  results_soon_body: {
+    ar: "النتائج ما بتظهر مباشرة بعد إغلاق التصويت — رح نفحص النتائج والألعاب ونجهّز للإعلان 🙂",
+    en: "Results aren't published the moment voting closes — we'll review the results and the games and prepare the announcement 🙂",
+  },
+  update_game_note: {
+    ar: "ملاحظة: من الآن تقدر تحدّث لعبتك بالكامل — انتهت فترة التصويت، وما في أي قيود على التعديل أو رفع نسخة جديدة 🙂",
+    en: "Note: you can now fully update your game — the rating period is over, so there are no restrictions on editing or uploading a new build 🙂",
+  },
   countdown_to_deadline: { ar: "الوقت المتبقي لتسليم اللعبة", en: "Time left to submit" },
   countdown_to_rating_end: { ar: "الوقت المتبقي للتقييم", en: "Time left to rate" },
   jam_finished: { ar: "انتهت الزنقة — شكراً لكم جميعاً", en: "The jam has ended — thank you all" },

@@ -58,7 +58,7 @@ function RevealBody() {
 
   const pill =
     stage === "rate" ? tr("rating_open_now")
-    : stage === "over" ? tr("jam_ended_browse")
+    : stage === "over" ? tr("voting_closed_pill")
     : tr("jam_live_now");
 
   return (
@@ -74,8 +74,10 @@ function RevealBody() {
           </span>
         </div>
 
-        {stage === "rate" && (
-          <p className="text-center text-xl md:text-2xl font-bold mb-6">{tr("rating_heading")}</p>
+        {stage !== "submit" && (
+          <p className="text-center text-xl md:text-2xl font-bold mb-6">
+            {stage === "rate" ? tr("rating_heading") : tr("results_soon_heading")}
+          </p>
         )}
 
         {/* the theme */}
@@ -122,9 +124,9 @@ function RevealBody() {
           </div>
         )}
 
-        {stage === "rate" && (
+        {stage !== "submit" && (
           <p className="text-center text-[color:var(--color-muted)] leading-relaxed mb-8 max-w-2xl mx-auto">
-            {tr("rating_intro")}
+            {stage === "rate" ? tr("rating_intro") : tr("results_soon_body")}
           </p>
         )}
 
@@ -166,6 +168,19 @@ function RevealBody() {
             {tr("join_discord_cta")}
           </a>
         </div>
+
+        {/* Games unlock for editing once rating closes — people ask every year */}
+        {stage === "over" && (
+          <div
+            className="mt-8 rounded-xl border p-5 md:p-6 text-sm leading-relaxed"
+            style={{
+              borderColor: "color-mix(in oklab, var(--color-accent-2) 45%, transparent)",
+              background: "color-mix(in oklab, var(--color-accent-2) 8%, transparent)",
+            }}
+          >
+            {tr("update_game_note")}
+          </div>
+        )}
 
         {/* itch.io's rating rules trip people up every year — spell them out */}
         {stage === "rate" && (
