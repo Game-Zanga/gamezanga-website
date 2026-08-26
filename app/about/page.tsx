@@ -13,7 +13,11 @@ export default function AboutPage() {
     edition: JAM_CONFIG.edition,
     year: new Date(JAM_CONFIG.jam_start).getFullYear(),
     itchio_url: JAM_CONFIG.itchio_url,
+    // No poster file for the running edition — GeneratedPoster draws one from
+    // the brand instead of leaving a "no poster" hole in the grid.
     poster_url: "",
+    theme_ar: JAM_CONFIG.announced_theme_ar || undefined,
+    theme_en: JAM_CONFIG.announced_theme_en || undefined,
   };
 
   return (
@@ -76,9 +80,7 @@ function EditionCard({
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (
-          <div className="absolute inset-0 grid place-items-center text-[color:var(--color-muted)] text-sm">
-            {locale === "ar" ? "بدون ملصق" : "No poster"}
-          </div>
+          <GeneratedPoster edition={edition} locale={locale} />
         )}
         {current && (
           <div
@@ -102,6 +104,84 @@ function EditionCard({
       </div>
     </div>
   );
+
+/**
+ * Stand-in poster for an edition that has no artwork yet — currently only the
+ * running one. Built from the same pieces as the hero (ground, corner glows,
+ * grid, the wordmark tinted through its alpha) so the card reads as part of the
+ * set rather than as a gap in it.
+ */
+function GeneratedPoster({ edition, locale }: { edition: PastEdition; locale: "ar" | "en" }) {
+  const num = edition.edition;
+  const theme = locale === "ar" ? edition.theme_ar : edition.theme_en || edition.theme_ar;
+
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-[color:var(--color-bg)]">
+      {/* brand atmosphere */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(120% 80% at 80% -10%, color-mix(in oklab, var(--color-accent) 30%, transparent), transparent 65%), radial-gradient(110% 70% at -10% 100%, color-mix(in oklab, var(--color-accent-2) 22%, transparent), transparent 60%)",
+        }}
+      />
+      <div
+        className="absolute inset-0 opacity-[0.6]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px)",
+          backgroundSize: "18px 18px",
+        }}
+      />
+
+      <div className="relative h-full flex flex-col items-center justify-center gap-2 px-3 text-center">
+        {/* wordmark, tinted through its own alpha like the hero */}
+        <div
+          role="img"
+          aria-label="زنقة الألعاب"
+          className="w-[78%]"
+          style={{
+            aspectRatio: "11823 / 2418",
+            WebkitMaskImage: "url(/images/gz-logo.png)",
+            maskImage: "url(/images/gz-logo.png)",
+            WebkitMaskSize: "contain",
+            maskSize: "contain",
+            WebkitMaskRepeat: "no-repeat",
+            maskRepeat: "no-repeat",
+            WebkitMaskPosition: "center",
+            maskPosition: "center",
+            background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))",
+          }}
+        />
+
+        {num != null && (
+          <div
+            className="font-black leading-none text-5xl sm:text-6xl mt-1"
+            style={{
+              background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+            dir="ltr"
+          >
+            {num}
+          </div>
+        )}
+
+        {theme && (
+          <div className="mt-1 px-2">
+            <div className="text-[9px] uppercase tracking-widest text-[color:var(--color-muted)]">
+              {locale === "ar" ? "الثيم" : "Theme"}
+            </div>
+            <div className="text-sm font-bold text-[color:var(--color-fg)] leading-snug break-words">
+              {theme}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
   return edition.itchio_url ? (
     <a href={edition.itchio_url} target="_blank" rel="noreferrer" aria-label={`${label} ${edition.year}`}>
