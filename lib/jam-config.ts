@@ -24,7 +24,7 @@ export const JAM_CONFIG = {
 
   // Results premiere — the stream that closes the edition. Until it starts the
   // site links to it so people can hit "Notify me"; after, it embeds inline.
-  results_announced: "2026-08-26T20:00:00+03:00", // Wednesday 8pm
+  results_announced: "2026-08-26T10:00:00+03:00", // Wednesday 8pm
   results_video_id: "bgkFsOczNTQ",
 
   // Closing figures for the wrap-up block. `registered` and `countries` come

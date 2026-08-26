@@ -183,6 +183,9 @@ export const t = {
   next_edition_reg_open: { ar: "التسجيل مفتوح", en: "Registration open" },
   watch_premiere_cta: { ar: "فعّل التذكير وشاهد البث", en: "Set a reminder & watch" },
   hero_watch_results: { ar: "شاهد إعلان النتائج", en: "Watch the results" },
+  top_games_heading: { ar: "أفضل ١٠ ألعاب — النسخة ١٤", en: "Top 10 games — Edition 14" },
+  top_games_sub: { ar: "اضغط على أي لعبة لتجربها على itch.io", en: "Tap any game to play it on itch.io" },
+  top_games_winner: { ar: "المركز الأول", en: "1st place" },
   next_edition_kicker: { ar: "احجز الموعد", en: "Save the date" },
   next_edition_heading: { ar: "زنقة الألعاب ١٥", en: "Game Zanga 15" },
   next_edition_body: {
