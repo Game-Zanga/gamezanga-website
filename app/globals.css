@@ -10,6 +10,14 @@
   --color-muted: #9a9ab0;
   --color-accent: #b347ff;
   --color-accent-2: #ff5e3a;
+
+  /* Next edition's identity — turquoise on the same black. Used by the
+     save-the-date block and the next-edition notice on /register so the two
+     years read as distinct while the mark stays constant.
+     White text is unreadable on these (1.86:1) — fills use --color-next-ink. */
+  --color-next-accent: #0ea5a4;
+  --color-next-accent-2: #22d3ee;
+  --color-next-ink: #0a0a0f;
   --color-success: #4ade80;
   --color-danger: #ff4d6d;
 

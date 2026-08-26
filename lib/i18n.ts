@@ -148,16 +148,51 @@ export const t = {
   },
   // After rating closes — results are not instant, and games unlock for editing
   voting_closed_pill: { ar: "انتهى التصويت", en: "Voting has closed" },
-  results_soon_heading: { ar: "النتائج قريباً (خلال الأيام القادمة)", en: "Results coming soon (in the next few days)" },
+  results_soon_heading: { ar: "بثّ إعلان نتائج زنقة الألعاب ١٤", en: "Game Zanga 14 — the results premiere" },
   results_soon_body: {
-    ar: "النتائج ما بتظهر مباشرة بعد إغلاق التصويت — رح نفحص النتائج والألعاب ونجهّز للإعلان 🙂",
-    en: "Results aren't published the moment voting closes — we'll review the results and the games and prepare the announcement 🙂",
+    ar: "خلّي التذكير شغّال وكون معنا في البث — رح نعلن الترتيب كامل من المركز العاشر لحد الأول 🏆",
+    en: "Set a reminder and join us for the stream — we'll count the full ranking down from 10th place to 1st 🏆",
   },
   update_game_note: {
     ar: "ملاحظة: من الآن تقدر تحدّث لعبتك بالكامل — انتهت فترة التصويت، وما في أي قيود على التعديل أو رفع نسخة جديدة 🙂",
     en: "Note: you can now fully update your game — the rating period is over, so there are no restrictions on editing or uploading a new build 🙂",
   },
+  // Premiere pending (rating closed -> results go live)
+  results_premiere_at: { ar: "موعد إعلان النتائج", en: "Results premiere" },
+  results_set_reminder: { ar: "فعّل التذكير على يوتيوب", en: "Set a reminder on YouTube" },
+
+  // Results are out — the edition's closing state
+  results_out_pill: { ar: "النتائج أُعلنت", en: "Results are out" },
+  results_heading: { ar: "نتائج زنقة الألعاب ١٤", en: "Game Zanga 14 — the results" },
+  results_watch: { ar: "شاهد إعلان النتائج", en: "Watch the results announcement" },
+  wrap_heading: { ar: "النسخة ١٤ بالأرقام", en: "Edition 14 in numbers" },
+  wrap_registered: { ar: "مشارك مسجّل", en: "registered participants" },
+  wrap_games: { ar: "لعبة مُسلّمة", en: "games submitted" },
+  wrap_countries: { ar: "دولة", en: "countries" },
+  wrap_thanks: {
+    ar: "شكراً لكل من سجّل، وبنى، ولعب، وقيّم، وشجّع. النسخة ١٤ كانت الأكبر في تاريخ الزنقة — وما صارت هيك إلا فيكم 💜",
+    en: "Thank you to everyone who registered, built, played, rated and cheered. Edition 14 was the biggest in Game Zanga's history — and that's entirely down to you 💜",
+  },
+
+  // Save the date — next edition
+  register_for_next_edition: {
+    ar: "التسجيل المفتوح حالياً هو لزنقة الألعاب ١٥ (١٥–١٨ يوليو ٢٠٢٧). اقتراح الثيمات والتصويت بيفتحوا لاحقاً — رح نعلن عنهم في وقتهم.",
+    en: "Registration currently open is for Game Zanga 15 (15–18 July 2027). Theme suggestions and voting open later — we'll announce them in time.",
+  },
+  next_edition_register: { ar: "سجّل الآن للنسخة ١٥", en: "Register now for Edition 15" },
+  next_edition_reg_open: { ar: "التسجيل مفتوح", en: "Registration open" },
+  watch_premiere_cta: { ar: "فعّل التذكير وشاهد البث", en: "Set a reminder & watch" },
+  hero_watch_results: { ar: "شاهد إعلان النتائج", en: "Watch the results" },
+  next_edition_kicker: { ar: "احجز الموعد", en: "Save the date" },
+  next_edition_heading: { ar: "زنقة الألعاب ١٥", en: "Game Zanga 15" },
+  next_edition_body: {
+    ar: "نفس الفكرة، ونفس الروح: ٧٢ ساعة، ثيم سرّي، ومجتمع كامل يبني مع بعض. التسجيل مفتوح من الآن — أما اقتراح الثيمات والتصويت فرح نعلن عن مواعيدهم لاحقاً.",
+    en: "Same idea, same spirit: 72 hours, a secret theme, and a whole community building together. Registration is open now — theme suggestions and voting will be announced later.",
+  },
+  next_edition_countdown: { ar: "العد التنازلي لزنقة الألعاب ١٥", en: "Countdown to Game Zanga 15" },
+
   countdown_to_deadline: { ar: "الوقت المتبقي لتسليم اللعبة", en: "Time left to submit" },
+  countdown_to_results: { ar: "العد التنازلي لإعلان النتائج", en: "Countdown to the results" },
   countdown_to_rating_end: { ar: "الوقت المتبقي للتقييم", en: "Time left to rate" },
   jam_finished: { ar: "انتهت الزنقة — شكراً لكم جميعاً", en: "The jam has ended — thank you all" },
 

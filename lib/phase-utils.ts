@@ -37,6 +37,30 @@ export function isRegistrationOpen(now: Date = new Date()): boolean {
   );
 }
 
+/**
+ * Which edition is accepting registrations right now, if any.
+ *
+ * Two windows can exist at once near a handover: the current edition's, and the
+ * next one's (which opens with the results so people can sign up for next year
+ * while this year's are still on screen). The current edition wins while it is
+ * open; otherwise the next one does.
+ *
+ * Everything that writes an edition tag must go through this — writing
+ * `JAM_CONFIG.edition` directly would file next year's signups under this year.
+ */
+export function registrationTarget(now: Date = new Date()): { edition: number; open: boolean } {
+  if (isRegistrationOpen(now)) return { edition: JAM_CONFIG.edition, open: true };
+
+  const next = JAM_CONFIG.next_edition;
+  const t = now.getTime();
+  const nextOpen =
+    t >= new Date(next.registration_open).getTime() &&
+    t < new Date(next.registration_close).getTime();
+  if (nextOpen) return { edition: next.edition, open: true };
+
+  return { edition: JAM_CONFIG.edition, open: false };
+}
+
 export function isSuggestionOpen(now: Date = new Date()): boolean {
   const t = now.getTime();
   return (
@@ -69,6 +93,11 @@ export function isRatingOpen(now: Date = new Date()): boolean {
 
 export function isRatingOver(now: Date = new Date()): boolean {
   return now.getTime() >= new Date(JAM_CONFIG.rating_close).getTime();
+}
+
+/** True once the results premiere has started — the edition's closing state. */
+export function areResultsOut(now: Date = new Date()): boolean {
+  return now.getTime() >= new Date(JAM_CONFIG.results_announced).getTime();
 }
 
 export function isThemeAnnounced(now: Date = new Date()): boolean {

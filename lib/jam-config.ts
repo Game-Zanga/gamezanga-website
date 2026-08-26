@@ -22,6 +22,34 @@ export const JAM_CONFIG = {
   // runs until this date — must match the jam's "Voting end date" on itch.io.
   rating_close: "2026-08-23T20:00:00+03:00", // Sunday 23 Aug, 8pm
 
+  // Results premiere — the stream that closes the edition. Until it starts the
+  // site links to it so people can hit "Notify me"; after, it embeds inline.
+  results_announced: "2026-08-26T20:00:00+03:00", // Wednesday 8pm
+  results_video_id: "bgkFsOczNTQ",
+
+  // Closing figures for the wrap-up block. `registered` and `countries` come
+  // from the participants table (countries deduped across the free-text
+  // "Other" answers); `games` is the entry count on the itch.io jam page.
+  edition_stats: {
+    registered: 1037,
+    countries: 25,
+    games: 158,
+  },
+
+  // Next edition — drives the save-the-date block and, once the results are
+  // out, the home page countdown. Promote these into the main fields next year.
+  next_edition: {
+    edition: 15,
+    jam_start: "2027-07-15T20:00:00+03:00", // 8pm
+    jam_end: "2027-07-18T22:00:00+03:00",   // 10pm
+    // Registration is open immediately — ahead of the edition-14 results, so the
+    // form is already live when the save-the-date block appears. Theme
+    // suggestion and voting windows are deliberately absent: those get
+    // announced later, and until they exist /suggest and /vote stay closed.
+    registration_open: "2026-08-25T00:00:00+03:00",
+    registration_close: "2027-07-18T22:00:00+03:00", // = jam_end
+  },
+
   // Links
   itchio_url: "https://itch.io/jam/gamezanga14",
   discord_url: "https://discord.gg/xvxEPtrzgu",

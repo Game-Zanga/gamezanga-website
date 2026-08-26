@@ -1,5 +1,6 @@
 import { Hero } from "@/components/home/Hero";
 import { ThemeReveal } from "@/components/home/ThemeReveal";
+import { NextEdition } from "@/components/home/NextEdition";
 import { Steps } from "@/components/home/Steps";
 import { AboutSection } from "@/components/home/About";
 import { JudgingCriteria } from "@/components/home/JudgingCriteria";
@@ -11,6 +12,8 @@ export default function Home() {
       <Hero />
       {/* Renders only from the theme announcement onward — see ThemeReveal. */}
       <ThemeReveal />
+      {/* Save-the-date — renders only after the results premiere. */}
+      <NextEdition />
       <Steps />
       <AboutSection />
       <JudgingCriteria />

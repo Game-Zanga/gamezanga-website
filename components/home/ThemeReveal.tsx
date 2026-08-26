@@ -4,12 +4,13 @@ import { useLocale } from "@/components/LocaleProvider";
 import { PhaseGate } from "@/components/ui/PhaseGate";
 import { JAM_CONFIG } from "@/lib/jam-config";
 import { formatArabicDeadline, formatEnglishDeadline } from "@/lib/date-format";
-import { isRatingOpen, isRatingOver } from "@/lib/phase-utils";
+import { areResultsOut, isRatingOpen, isRatingOver } from "@/lib/phase-utils";
 import { useEffect, useState } from "react";
 
-type Stage = "submit" | "rate" | "over";
+type Stage = "submit" | "rate" | "over" | "results";
 
 function currentStage(now = new Date()): Stage {
+  if (areResultsOut(now)) return "results";
   if (isRatingOver(now)) return "over";
   if (isRatingOpen(now)) return "rate";
   return "submit";
@@ -56,8 +57,21 @@ function RevealBody() {
   const deadline = fmt(JAM_CONFIG.jam_end);
   const ratingDeadline = fmt(JAM_CONFIG.rating_close);
 
+  // Once the premiere airs the results video takes the slot — the theme reveal
+  // is history by then, and the results are what people arrive for.
+  // From the moment rating closes the results video takes the slot: before the
+  // premiere airs YouTube renders its own countdown and "Notify me" inside the
+  // player, which promotes it far better than a link underneath.
+  const videoId =
+    stage === "results" || stage === "over"
+      ? JAM_CONFIG.results_video_id
+      : JAM_CONFIG.announcement_video_id;
+  const premiereUrl = `https://youtu.be/${JAM_CONFIG.results_video_id}`;
+  const premiereAt = fmt(JAM_CONFIG.results_announced);
+
   const pill =
     stage === "rate" ? tr("rating_open_now")
+    : stage === "results" ? tr("results_out_pill")
     : stage === "over" ? tr("voting_closed_pill")
     : tr("jam_live_now");
 
@@ -76,7 +90,9 @@ function RevealBody() {
 
         {stage !== "submit" && (
           <p className="text-center text-xl md:text-2xl font-bold mb-6">
-            {stage === "rate" ? tr("rating_heading") : tr("results_soon_heading")}
+            {stage === "rate" ? tr("rating_heading")
+              : stage === "results" ? tr("results_heading")
+              : tr("results_soon_heading")}
           </p>
         )}
 
@@ -105,7 +121,7 @@ function RevealBody() {
         </div>
 
         {/* announcement video — 16:9, responsive */}
-        {JAM_CONFIG.announcement_video_id && (
+        {videoId && (
           <div className="mb-8">
             <div
               className="relative w-full overflow-hidden rounded-xl border border-[color:var(--color-border)] bg-black"
@@ -113,8 +129,8 @@ function RevealBody() {
             >
               <iframe
                 className="absolute inset-0 w-full h-full"
-                src={`https://www.youtube-nocookie.com/embed/${JAM_CONFIG.announcement_video_id}?rel=0`}
-                title={tr("watch_announcement")}
+                src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0`}
+                title={stage === "results" ? tr("results_watch") : tr("watch_announcement")}
                 loading="lazy"
                 allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 referrerPolicy="strict-origin-when-cross-origin"
@@ -126,19 +142,24 @@ function RevealBody() {
 
         {stage !== "submit" && (
           <p className="text-center text-[color:var(--color-muted)] leading-relaxed mb-8 max-w-2xl mx-auto">
-            {stage === "rate" ? tr("rating_intro") : tr("results_soon_body")}
+            {stage === "rate" ? tr("rating_intro")
+              : stage === "results" ? tr("wrap_thanks")
+              : tr("results_soon_body")}
           </p>
         )}
 
         {/* primary CTA — submit during the jam, play-and-rate afterwards */}
         <div className="flex flex-col items-center gap-4">
           <a
-            href={JAM_CONFIG.itchio_url}
+            href={stage === "over" ? premiereUrl : JAM_CONFIG.itchio_url}
             target="_blank"
             rel="noreferrer"
             className="btn btn-primary text-base md:text-lg w-full sm:w-auto text-center"
           >
-            {stage === "rate" ? tr("rating_cta") : stage === "over" ? tr("view_entries") : tr("submit_your_game")}
+            {stage === "rate" ? tr("rating_cta")
+              : stage === "results" ? tr("view_entries")
+              : stage === "over" ? tr("watch_premiere_cta")
+              : tr("submit_your_game")}
           </a>
 
           {stage === "submit" && (
@@ -159,6 +180,24 @@ function RevealBody() {
             </div>
           )}
 
+          {stage === "over" && (
+            <div className="text-center text-sm text-[color:var(--color-muted)]">
+              <span className="font-medium text-[color:var(--color-fg)]">
+                {tr("results_premiere_at")}:
+              </span>{" "}
+              {premiereAt}
+              <div className="text-xs mt-1">{tr("ksa_time")}</div>
+              <a
+                href={JAM_CONFIG.itchio_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block mt-3 text-[color:var(--color-accent)] underline underline-offset-4"
+              >
+                {tr("view_entries")}
+              </a>
+            </div>
+          )}
+
           <a
             href={JAM_CONFIG.discord_url}
             target="_blank"
@@ -168,6 +207,40 @@ function RevealBody() {
             {tr("join_discord_cta")}
           </a>
         </div>
+
+        {/* Edition wrap-up — the numbers, once the results have aired */}
+        {stage === "results" && (
+          <div className="mt-10">
+            <div className="text-center text-xs uppercase tracking-widest text-[color:var(--color-muted)] mb-5">
+              {tr("wrap_heading")}
+            </div>
+            <div className="grid grid-cols-3 gap-3 md:gap-4">
+              {[
+                { n: JAM_CONFIG.edition_stats.registered.toLocaleString("en-US"), l: tr("wrap_registered") },
+                { n: String(JAM_CONFIG.edition_stats.games), l: tr("wrap_games") },
+                { n: String(JAM_CONFIG.edition_stats.countries), l: tr("wrap_countries") },
+              ].map((s, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)]/40 p-4 text-center"
+                >
+                  <div
+                    className="text-3xl md:text-4xl font-black"
+                    style={{
+                      background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                    }}
+                    dir="ltr"
+                  >
+                    {s.n}
+                  </div>
+                  <div className="text-xs text-[color:var(--color-muted)] mt-1 leading-snug">{s.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Games unlock for editing once rating closes — people ask every year */}
         {stage === "over" && (

@@ -1,21 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale } from "@/components/LocaleProvider";
 import { JAM_CONFIG } from "@/lib/jam-config";
+import { isSuggestionOpen, isVotingOpen } from "@/lib/phase-utils";
 
 export function Navbar() {
   const { locale, toggle, tr } = useLocale();
   const [open, setOpen] = useState(false);
+
+  // Suggestion and voting are seasonal — outside their windows both pages only
+  // say "closed", so they drop out of the nav rather than sending people to a
+  // dead end. Date-dependent, hence the effect.
+  const [seasonal, setSeasonal] = useState({ suggest: false, vote: false });
+  useEffect(() => {
+    const update = () => setSeasonal({ suggest: isSuggestionOpen(), vote: isVotingOpen() });
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const links = [
     { href: "/", key: "nav_home" as const },
     { href: "/about", key: "nav_about" as const },
     { href: "/rules", key: "nav_rules" as const },
     { href: "/register", key: "nav_register" as const },
-    { href: "/suggest", key: "nav_suggest" as const },
-    { href: "/vote", key: "nav_vote" as const },
+    ...(seasonal.suggest ? [{ href: "/suggest", key: "nav_suggest" as const }] : []),
+    ...(seasonal.vote ? [{ href: "/vote", key: "nav_vote" as const }] : []),
   ];
 
   return (

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
-import { isRegistrationOpen } from "@/lib/phase-utils";
+import { registrationTarget } from "@/lib/phase-utils";
 import { validateRegister } from "@/lib/validation";
 import { JAM_CONFIG } from "@/lib/jam-config";
 import { getResend, EMAIL_FROM } from "@/lib/resend";
@@ -32,7 +32,11 @@ export async function POST(req: Request) {
       { status: 429, headers: rl.retryAfter ? { "Retry-After": String(rl.retryAfter) } : {} }
     );
   }
-  if (!isRegistrationOpen()) {
+  // Which edition this signup belongs to. Near a handover this is the NEXT
+  // edition — registration for it opens while the finished one is still on
+  // screen — so the tag must never be read from JAM_CONFIG.edition directly.
+  const target = registrationTarget();
+  if (!target.open) {
     return NextResponse.json({ code: "err_registration_closed" }, { status: 403 });
   }
 
@@ -91,7 +95,7 @@ export async function POST(req: Request) {
 
   let participantId: string;
 
-  const currentTag = String(JAM_CONFIG.edition);
+  const currentTag = String(target.edition);
 
   if (existing) {
     const editions = (existing.editions as string[]) ?? [];
@@ -153,7 +157,7 @@ export async function POST(req: Request) {
     const { error: authErr } = await supabase.auth.admin.createUser({
       email: data.email,
       email_confirm: true,
-      user_metadata: { full_name: data.full_name, edition: JAM_CONFIG.edition },
+      user_metadata: { full_name: data.full_name, edition: target.edition },
     });
     if (authErr && !/already been registered|already exists/i.test(authErr.message)) {
       console.error("auth.admin.createUser failed", authErr);
@@ -173,8 +177,8 @@ export async function POST(req: Request) {
       const { error: sendErr } = await resend.emails.send({
         from: EMAIL_FROM,
         to: data.email,
-        subject: `${JAM_CONFIG.name_ar} ${JAM_CONFIG.edition} — تأكيد التسجيل / Registration Confirmed`,
-        react: RegistrationConfirmation({ fullName: data.full_name }),
+        subject: `${JAM_CONFIG.name_ar} ${target.edition} — تأكيد التسجيل / Registration Confirmed`,
+        react: RegistrationConfirmation({ fullName: data.full_name, edition: target.edition }),
       });
       if (sendErr) {
         console.error("registration email rejected by Resend", sendErr.name, sendErr.message, data.email);

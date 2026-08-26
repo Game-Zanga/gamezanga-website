@@ -33,6 +33,12 @@ export function Countdown() {
       ? { at: JAM_CONFIG.jam_end, label: tr("countdown_to_deadline") }
       : ms < new Date(JAM_CONFIG.rating_close).getTime()
       ? { at: JAM_CONFIG.rating_close, label: tr("countdown_to_rating_end") }
+      // the results premiere closes this edition out before the next one starts
+      // competing for attention
+      : ms < new Date(JAM_CONFIG.results_announced).getTime()
+      ? { at: JAM_CONFIG.results_announced, label: tr("countdown_to_results") }
+      : ms < new Date(JAM_CONFIG.next_edition.jam_start).getTime()
+      ? { at: JAM_CONFIG.next_edition.jam_start, label: tr("next_edition_countdown") }
       : null;
 
   if (!target) {

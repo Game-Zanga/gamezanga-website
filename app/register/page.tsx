@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { RegisterForm } from "@/components/forms/RegisterForm";
 import { useLocale } from "@/components/LocaleProvider";
-import { isRegistrationOpen } from "@/lib/phase-utils";
+import { registrationTarget } from "@/lib/phase-utils";
+import { JAM_CONFIG } from "@/lib/jam-config";
 
 /**
  * Gates the form on isRegistrationOpen() — the exact predicate /api/register
@@ -16,18 +17,24 @@ import { isRegistrationOpen } from "@/lib/phase-utils";
  * API happily kept accepting signups. Deriving the gate from the same function
  * the API uses means the two can't drift apart again.
  */
-function RegistrationGate({ children, fallback }: { children: React.ReactNode; fallback: React.ReactNode }) {
-  const [open, setOpen] = useState<boolean | null>(null);
+function RegistrationGate({
+  children,
+  fallback,
+}: {
+  children: (edition: number) => React.ReactNode;
+  fallback: React.ReactNode;
+}) {
+  const [target, setTarget] = useState<{ edition: number; open: boolean } | null>(null);
 
   useEffect(() => {
-    const update = () => setOpen(isRegistrationOpen());
+    const update = () => setTarget(registrationTarget());
     update();
     const id = setInterval(update, 30_000);
     return () => clearInterval(id);
   }, []);
 
-  if (open === null) return null; // avoid an SSR/CSR mismatch on the gate
-  return <>{open ? children : fallback}</>;
+  if (target === null) return null; // avoid an SSR/CSR mismatch on the gate
+  return <>{target.open ? children(target.edition) : fallback}</>;
 }
 
 export default function RegisterPage() {
@@ -52,7 +59,22 @@ export default function RegisterPage() {
           </div>
         }
       >
-        <RegisterForm />
+        {(edition) => (
+          <>
+            {edition !== JAM_CONFIG.edition && (
+              <div
+                className="rounded-xl border p-4 md:p-5 mb-8 text-sm leading-relaxed text-center"
+                style={{
+                  borderColor: "color-mix(in oklab, var(--color-next-accent) 50%, transparent)",
+                  background: "color-mix(in oklab, var(--color-next-accent) 10%, transparent)",
+                }}
+              >
+                {tr("register_for_next_edition")}
+              </div>
+            )}
+            <RegisterForm />
+          </>
+        )}
       </RegistrationGate>
     </section>
   );

@@ -1,14 +1,27 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useLocale } from "@/components/LocaleProvider";
 import { JAM_CONFIG } from "@/lib/jam-config";
+import { isRatingOver } from "@/lib/phase-utils";
 
 const linkClass =
   "text-[color:var(--color-accent)] underline underline-offset-2 hover:opacity-80 transition-opacity";
 
 export function Steps() {
   const { tr, locale } = useLocale();
+
+  // Steps 2 and 3 link to theme suggestion, voting and this edition's itch.io
+  // page. Once rating closes all three are dead ends, and the next edition has
+  // no windows yet — so the whole block hides until they exist again.
+  const [hidden, setHidden] = useState<boolean | null>(null);
+  useEffect(() => {
+    const update = () => setHidden(isRatingOver());
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const steps = [
     {
@@ -108,6 +121,8 @@ export function Steps() {
         ),
     },
   ];
+
+  if (hidden !== false) return null;
 
   return (
     <section className="max-w-6xl mx-auto px-4 py-16">
