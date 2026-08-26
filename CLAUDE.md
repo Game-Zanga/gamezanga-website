@@ -112,6 +112,31 @@ export const JAM_CONFIG = {
   // "Voting end date" on itch.io. Drives the home page's rating block.
   rating_close:       "2026-08-23T20:00:00+03:00",
 
+  // Results premiere. Before it the home page links to the stream so people can
+  // hit "Notify me"; after, it embeds inline and the closing state takes over.
+  results_announced:  "2026-08-26T20:00:00+03:00",
+  results_video_id:   "bgkFsOczNTQ",
+
+  // Closing figures for the wrap-up block. registered/countries come from the
+  // participants table (countries deduped across free-text "Other" answers);
+  // games is the entry count on the itch.io jam page.
+  edition_stats: { registered: 1037, countries: 25, games: 158 },
+
+  // Next edition. Registration for it opens while this one is still on screen,
+  // so a signup's edition tag must come from registrationTarget(), never from
+  // JAM_CONFIG.edition. Suggestion/voting windows are deliberately absent until
+  // they are announced — /suggest and /vote stay closed on their own.
+  next_edition: {
+    edition: 15,
+    jam_start:          "2027-07-15T20:00:00+03:00",
+    jam_end:            "2027-07-18T22:00:00+03:00",
+    registration_open:  "2026-08-25T00:00:00+03:00",
+    registration_close: "2027-07-18T22:00:00+03:00", // = jam_end
+  },
+
+  // Theme-announcement video — YouTube ID only; "" hides the player.
+  announcement_video_id: "NDm79oD9Aa0",
+
   // Links
   itchio_url:    "https://itch.io/jam/gamezanga14",
   discord_url:   "https://discord.gg/xvxEPtrzgu",
@@ -125,8 +150,8 @@ export const JAM_CONFIG = {
 
   // The announced theme. Leave "" until the admin presses "Set as winner"
   // (which also updates the jam_phases row in the DB).
-  announced_theme_ar: "",
-  announced_theme_en: "",
+  announced_theme_ar: "أحلام",
+  announced_theme_en: "Dreams",
 
   // Max theme suggestions per participant
   max_suggestions_per_user: 3,
@@ -138,19 +163,42 @@ export const JAM_CONFIG = {
 
 The site's current phase is computed from these dates at runtime by [`lib/phase-utils.ts`](lib/phase-utils.ts) — there is no scheduled job. The `jam_phases` table in Supabase stores the announced theme only; phase tracking is date-driven.
 
+Beyond `getCurrentPhase()`, that module exports the predicates the UI actually gates on. Prefer these over comparing dates inline, and over `getCurrentPhase()` where a window and a phase disagree:
+
+| Helper | True when |
+|---|---|
+| `isRegistrationOpen()` | inside **this** edition's registration window |
+| `registrationTarget()` | → `{ edition, open }` — **the only correct source of a signup's edition tag.** Current edition wins while open, otherwise the next one |
+| `isSuggestionOpen()` / `isVotingOpen()` | inside the suggestion / theme-voting windows |
+| `isRatingOpen()` / `isRatingOver()` | the itch.io play-and-rate window, `jam_end` → `rating_close` |
+| `areResultsOut()` | the results premiere has started — the edition's closing state |
+| `isThemeAnnounced()` | past `theme_announced`; gates the public theme + scores |
+
+`getCurrentPhase()` returns `jam_ended` for *everything* after the jam, which is why the rating and results states are separate predicates rather than phases.
+
 ---
 
 ## Site Pages & Routes
 
 ### `/` — Home
-- Hero section: Logo + edition number + animated countdown timer to jam start
-- Current jam dates and times (with Saudi timezone label)
-- Three-step registration CTA (visual steps)
-- About the jam (short paragraph)
-- Judging criteria section
-- Partners / sponsors logo grid
-- Media partners logo grid
-- Footer with all social links
+
+The home page is a **lifecycle**, not a fixed layout. Every block below decides for itself from the dates in `jam-config`, on a 30–60s interval, so the site moves through the edition with no deploy and no cron. All of them return `null` before mount to avoid an SSR/CSR mismatch.
+
+| Block | Component | Shows when |
+|---|---|---|
+| Hero + countdown | `Hero` / `Countdown` | always; the countdown **retargets** — jam start → submission deadline → rating close → results premiere → next edition |
+| Theme / results card | `ThemeReveal` | from `theme_announced` onward. Four stages: `submit` → `rate` → `over` (premiere pending) → `results` |
+| Top 10 standings | `TopGames` | only once `areResultsOut()` — the rankings must not be readable (or scrapable) before the stream |
+| Save-the-date | `NextEdition` | only once `areResultsOut()`; carries the **next edition's turquoise palette** |
+| How to participate | `Steps` | hidden once `isRatingOver()` — its links point at suggestion/voting/itch.io, all dead ends between editions |
+| About, judging, partners | — | always |
+
+`ThemeReveal`'s stages in detail:
+
+- **`submit`** — theme word, announcement video, "ارفع لعبتك على itch.io", submission deadline
+- **`rate`** — play-and-rate CTA plus a rules card spelling out itch.io's rating queue (submitters only, rate 5 random entries to unlock free choice). Those rules trip people up every year
+- **`over`** — the results premiere is **embedded before it airs**, so YouTube renders its own countdown and "Notify me" in the player; plus the exact premiere time and the "you can now update your game" note
+- **`results`** — results video inline, thank-you, and the edition's closing numbers from `edition_stats`
 
 ### `/about` — About
 - Full history and description of Game Zanga
@@ -377,6 +425,8 @@ Runs a defense-in-depth gauntlet **in this order** before touching the DB:
 5. `validateRegister` field validation → 400 `{ errors }`
 6. `checkSpamSignature` → **fake `{ success: true }`** (shadowban — no DB write, bot thinks it worked)
 
+**Which edition the signup belongs to** comes from `registrationTarget()`, *not* `JAM_CONFIG.edition`. Near a handover both windows can be open at once — edition 14's results are still on screen while registration for 15 is live — and reading the constant would file next year's signups under the finished edition. The same target drives the page gate, the auth-user metadata and the confirmation email (which takes `edition` as a prop).
+
 Then the actual write (**upsert by email**, not insert):
 - If the email is new → inserts a `participants` row with `editions: ["14"]`.
 - If the email already exists **and isn't tagged with the current edition** → appends `"14"` to `editions[]`. **Profile fields are NOT overwritten** (blocks identity hijacking — see Security). Already-tagged → 409 `err_email_already_registered`.
@@ -439,6 +489,9 @@ Then the actual write (**upsert by email**, not insert):
 - Body: `{ theme_ar, theme_en }`. Upserts `jam_phases.winning_theme_ar/en` for the current edition.
 
 ### `POST /api/admin/broadcast` (protected)
+- Sends via Resend's **batch endpoint, 100 recipients per request, paced 600ms apart**. It used to be a per-recipient loop with no delay, which fired the whole list as fast as the API answered (~200 req/s on 2026-08-07), tripped the 2 req/s limit, exhausted the account's daily quota — killing Supabase magic-link sign-ins for ~8h, since those relay through the same Resend account — and still reported everything as sent.
+- The participants query carries an explicit `ORDER BY`: without one Postgres gives no stable row order across paginated `.range()` calls, so both the pagination and the `skip` offset could silently skip or duplicate people.
+- `skip` / `limit` let one broadcast be resumed across days under a daily quota; the response returns `resume_from` when a run stops early.
 - Body: `{ subject, body_ar, body_en, editions? }`. Targeting: `editions: "all"` = everyone ever; `editions: ["13","SE"]` = anyone whose `editions[]` overlaps that list; omitted = current edition only. Paginates around the 1000-row cap, then sends a bilingual email via Resend one-at-a-time (rate limits).
 
 ### `GET /api/cron/spam-report` (bearer-token, not cookie)
@@ -567,9 +620,15 @@ URIs), so they work offline and render Arabic correctly with no network access.
 > a **fragment** for pasting into itch.io, so it carries no document-level tags at all.
 
 ### `docs/social-post-generator.html`
-Canvas-based generator for branded artwork. Two modes:
+Canvas-based generator for branded artwork. An **Edition** switcher re-skins the whole tool — GZ14 purple (`#b347ff → #ff5e3a`) or GZ15 turquoise (`#0ea5a4 → #22d3ee`) — and content fields are only refilled when they still hold a known default, so typed text survives the switch. Text on filled shapes follows the edition: white on GZ14 purple, **dark ink on GZ15 turquoise**, where white is only 1.86:1.
+
+Four modes:
 - **Social post** — presets for IG post/portrait/story, X, Facebook/OG, LinkedIn, YouTube thumb,
   plus free width×height. Editable badge/tagline/meta/dates/CTA, logo tint, glows, grid, watermark.
+- **Theme reveal** — small label / big theme word / quiet subtitle, for the announcement post.
+- **Winner card** — same renderer as the theme reveal (`renderHeroCard`), fed placement / game name /
+  developer instead. The placement field offers all ten ranks. Line direction is **detected per
+  line**, so an Arabic theme and a Latin game title both render correctly.
 - **Profile icon** — square-locked avatar presets (X 400, IG 320, Discord 512, master 1000) using
   the square logo, with a **preview-only** circle-crop guide. Export always re-renders offscreen so
   the guide can never reach the PNG.
@@ -711,7 +770,10 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 ```
 /
 ├── app/
-│   ├── layout.tsx              # Root layout — reads locale cookie, sets <html lang/dir>, loads fonts
+│   ├── layout.tsx              # Root layout — locale cookie, <html lang/dir>, fonts, OG/Twitter metadata
+│   ├── icon.png                # 512 app icon  ┐ Next file conventions — do NOT add an
+│   ├── apple-icon.png          # 180 iOS icon  ├ `icons` entry to metadata or these are
+│   ├── favicon.ico             # 16/32/48      ┘ suppressed. RGBA frames required.
 │   ├── globals.css             # Tailwind v4 entry + @theme tokens + dark palette + .card-glow / .btn / .input
 │   ├── page.tsx                # Home
 │   ├── about/page.tsx
@@ -744,9 +806,12 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 │   │   ├── Navbar.tsx
 │   │   └── Footer.tsx
 │   ├── home/
-│   │   ├── Hero.tsx
-│   │   ├── Countdown.tsx
-│   │   ├── Steps.tsx
+│   │   ├── Hero.tsx                 # lifecycle-aware CTA + dates
+│   │   ├── Countdown.tsx            # retargets: jam start → deadline → rating → results → next edition
+│   │   ├── ThemeReveal.tsx          # submit / rate / over / results — the edition's headline block
+│   │   ├── TopGames.tsx             # final standings, gated on areResultsOut()
+│   │   ├── NextEdition.tsx          # save-the-date, next edition's turquoise palette
+│   │   ├── Steps.tsx                # hidden once its links become dead ends
 │   │   ├── About.tsx
 │   │   ├── JudgingCriteria.tsx
 │   │   └── Partners.tsx
@@ -768,7 +833,8 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 │   ├── JamReminder.tsx
 │   └── BroadcastGeneral.tsx
 ├── lib/
-│   ├── jam-config.ts                # ← EDIT THIS EACH YEAR. Dates, edition number, itch URL, past editions.
+│   ├── jam-config.ts                # ← EDIT THIS EACH YEAR. Dates, edition, stats, next_edition, past editions.
+│   ├── results.ts                   # TOP_GAMES — final standings + special awards for the closing page
 │   ├── phase-utils.ts               # getCurrentPhase(), isRegistrationOpen(), isVotingOpen(), timeUntil(), …
 │   ├── i18n.ts                      # Translations dictionary + tr() / trCode() + COUNTRIES list
 │   ├── content.ts                   # Long-form bilingual copy: rules list, FAQ, about
@@ -789,6 +855,10 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 │   ├── verify-rls.mjs               # anon-key RLS audit (read/write/delete blocked?)
 │   ├── add-theme-suggestions.mjs    # bulk-insert curated themes as pending; --dry-run; see below
 │   ├── media-kit-stats.mjs          # read-only participant stats for the media kit
+│   ├── diagnose-signin.mjs          # participant ↔ auth-user cross-check ("I never got the link")
+│   ├── resend-audit.mjs             # Resend send history by kind/day/outcome — watch quota
+│   ├── broadcast-gap.mjs            # who was meant to get a broadcast but never did
+│   ├── build-favicon.py             # renders app/icon.png + apple-icon.png + favicon.ico
 │   ├── build-og-image.py            # renders public/og.png (social share card)
 │   ├── build-media-kit-docx.mjs     # renders the editable .docx media kit
 │   ├── find-spam-patterns.mjs / recent-ed14.mjs / check-state.mjs / check-typos.mjs / fix-typos.mjs
@@ -797,12 +867,14 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 │   ├── itchio-page.html             # RTL Arabic HTML for the itch.io jam description
 │   ├── media-kit.html               # bilingual partner/sponsor media kit (see Media Kit below)
 │   ├── Game-Zanga-Media-Kit-2026.pdf # A4 PDF rendered from media-kit.html
-│   └── social-post-generator.html   # canvas tool: branded social posts + profile icons
+│   ├── social-post-generator.html   # canvas tool: posts, theme reveal, winner cards, profile icons
+│   └── results-gz14/                # embargoed results data + generated winner cards
 ├── .github/workflows/
 │   └── spam-report.yml              # every-3h cron → /api/cron/spam-report
 ├── public/
 │   └── images/
 │       ├── editions/                # Past-edition posters (gz1.jpg … gz13.jpg, gz-special-2024.jpg)
+│       ├── results/gz14/            # Top-10 cover art (01.jpg … 10.jpg)
 │       ├── partners/                # Partner + media-partner logos (.png)
 │       ├── gz-logo.png              # wide wordmark (masked/tinted in Hero)
 │       └── gz-squarelogo.png        # square logo (navbar avatar)
@@ -878,6 +950,16 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 - **Supabase silently caps `.select()` at 1000 rows.** This has bitten this repo twice (the registrations table, then the suggestions queue) — both times the UI looked fine while quietly hiding data. Any endpoint that can exceed 1000 rows must paginate with `.range(from, to)` in a loop or accept `?page=`/`?limit=`. Use `{ count: "exact" }` for totals and `{ count: "exact", head: true }` for count-only queries (no rows transferred).
 - **Any list UI that re-fetches on a filter change needs a request-sequence guard.** Switching filters quickly leaves two loads in flight and the slower response can overwrite the newer one. `SuggestionsPanel` keeps a monotonic `useRef` counter and drops superseded responses; it also clears rows on filter change so the previous filter's cards don't linger during the fetch.
 - **Standalone `docs/*.html` need `<meta charset="utf-8">` in the first 1024 bytes** — opened over `file://` there's no `Content-Type` header, and Safari decodes UTF-8 as Windows-1252, turning Arabic into mojibake. Applies to `media-kit.html` and `social-post-generator.html`. **`itchio-page.html` deliberately has none**: it's a fragment pasted into itch.io's description field (which supplies its own charset), and that sanitiser renders stray non-content tags as visible text — it ate HTML comments once already.
+- **`resend.emails.send()` resolves with `{ error }` — it never throws.** A `try/catch` around it catches nothing, so a `sent++` after the call counts rejected sends as successes. Always destructure and inspect `error`. This is what hid the quota outage for hours.
+- **Never write an edition tag from `JAM_CONFIG.edition`.** Use `registrationTarget()` — see `/api/register`.
+- **Any UI gate must use the same predicate the API uses.** `/register` once gated on a *phase list* while the API gated on `isRegistrationOpen()`; the moment the jam started the phase became `jam_active` and the form vanished for the whole weekend while the API happily accepted signups.
+- **CSP blocks new embeds silently, and only in production.** `next.config.ts` sets `frame-src`; the YouTube players needed `https://www.youtube-nocookie.com` added. Dev is not served these headers, so an embed looks perfect locally and renders as an empty box live.
+- **`app/favicon.ico` must contain RGBA frames.** Next/Turbopack decodes it at build time and fails the whole build with `Format error decoding Ico: The PNG is not in RGBA format!` — PIL writes RGB unless you `.convert("RGBA")` first.
+- **An explicit `icons` entry in the metadata export suppresses the `app/` file conventions** — `icon.png` and `apple-icon.png` then never get linked.
+- **Both logos are white-on-alpha masks.** `gz-logo.png` and `gz-squarelogo.png` are pure white; they are tinted through their own alpha (CSS `mask-image`, or canvas `source-in`). Dropped onto any light surface as-is they are invisible — which is why the favicon paints a gradient behind the mark.
+- **PIL cannot shape Arabic.** Anything generated with Pillow must run text through `arabic_reshaper` + `python-bidi` first, or the letters come out disconnected and reversed. `scripts/build-og-image.py` sidesteps this entirely by using the logo artwork instead of drawn Arabic.
+- **Canvas `actualBoundingBoxAscent` is measured relative to the current `textBaseline`.** Measuring before setting the baseline returns metrics for a different origin — in the post generator that made a label crash into the theme word.
+- **Don't `rm -rf .next` while `npm run dev` is running** — it deletes the route manifest out from under it and every request 500s until the server restarts. Use `npx next build` instead.
 - **Tests passed once with this stack** but there are no automated tests in the repo. Verifications were done by running `npm run build` (or `npx tsc --noEmit`) after each significant change.
 
 ---
@@ -886,7 +968,13 @@ DNS lives at the domain registrar (not Vercel nameservers, to keep email DNS unt
 
 Each year, the routine is:
 
-1. **Edit `lib/jam-config.ts`** — edition number, jam start/end, phase windows, itch URL. Move the just-finished edition into `PAST_EDITIONS` with its winning theme.
+1. **Edit `lib/jam-config.ts`** — bump `edition`, **promote `next_edition`'s dates into the main
+   fields**, set the new phase windows and itch URL, and reset `announced_theme_ar/en` to `""`,
+   `results_video_id`/`announcement_video_id` to the new videos, and `edition_stats` to the new
+   figures. Move the just-finished edition into `PAST_EDITIONS` with its winning theme and poster,
+   then point `next_edition` at the edition after that.
+   **Archive `lib/results.ts` rather than overwriting it** — the standings for a finished edition are
+   the only record of who won. Key it by edition, or move it aside.
 2. **In Supabase SQL Editor**:
    ```sql
    INSERT INTO jam_phases (edition, current_phase)
@@ -911,7 +999,13 @@ Each year, the routine is:
      `python3 scripts/build-og-image.py` after changing the edition number or jam dates
      (it bakes both in as text). The surrounding `<meta>` tags in `app/layout.tsx` derive
      themselves from `JAM_CONFIG` and need no edit.
-7. **Consider `MAINTENANCE_MODE`** during the pre-launch window if bots return; the spam blocklist (`blocklist:names` in Upstash) persists across editions and can be pruned via the Upstash console.
+7. **Re-run the icon set** if the palette changes:
+   `python3 scripts/build-favicon.py <accent1> <accent2>` — e.g. `0ea5a4 22d3ee` for GZ15's
+   turquoise. Writes `app/icon.png`, `app/apple-icon.png` and `app/favicon.ico`.
+8. **Sanity-check the handover window.** Registration for the new edition opens while the finished
+   one is still on screen — confirm `registrationTarget()` returns the *new* edition before
+   announcing it, or signups get filed under last year.
+9. **Consider `MAINTENANCE_MODE`** during the pre-launch window if bots return; the spam blocklist (`blocklist:names` in Upstash) persists across editions and can be pruned via the Upstash console.
 
 Everything else stays the same.
 
@@ -923,6 +1017,14 @@ Reverse-chronological. Useful for understanding *why* something looks the way it
 
 | Change | Reason |
 |---|---|
+| Home page became a **date-driven lifecycle** (`ThemeReveal` stages, `TopGames`, `NextEdition`, retargeting `Countdown`, self-hiding `Steps`) | Each moment of the edition — jam, rating, premiere, results, next year — needs a different page, and doing it by hand meant a deploy at 8pm on a Sunday |
+| `registrationTarget()`; registration opens for the next edition while this one is closing out | Two registration windows overlap at a handover; reading `JAM_CONFIG.edition` filed next year's signups under the finished edition |
+| `/register` gate switched from a phase list to `isRegistrationOpen()` | The form silently vanished for the entire jam weekend while the API kept accepting signups |
+| Broadcast route rewritten: batch endpoint, 600ms pacing, real error inspection, `ORDER BY`, resumable `skip` | An unthrottled loop exhausted Resend's daily quota, taking magic-link sign-in down for ~8h, and reported every rejected send as a success |
+| OG/Twitter metadata + `public/og.png`; logos resized 2.6 MB → 71 KB | Shared links rendered as bare URLs, and every page shipped a 1.1 MB image displayed at 28px |
+| Real favicon set (`icon.png` / `apple-icon.png` / `favicon.ico`) | The tab still showed the Next.js scaffold default |
+| Partner logo files renamed in pairs | The images were saved in reverse order within groups of four, so every tile linked to the wrong org |
+| Post generator: edition palette switcher + theme-reveal and winner-card modes | GZ15 re-skins to turquoise while GZ14 assets are still needed, and the results needed ten placement cards |
 | Suggestions queue: server pagination + status filters + counts | 100 suggestions rendered as one unbroken wall; also closed the same 1000-row truncation risk the registrations table had |
 | `docs/media-kit.html` + PDF | Qwacks (game-dev tooling platform) asked for a ملف تعريفي for a potential collaboration |
 | `docs/social-post-generator.html` | Reusable branded artwork at any size, instead of one-off posts |

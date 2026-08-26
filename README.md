@@ -197,6 +197,7 @@ data URIs so they work offline and render Arabic correctly.
 | `media-kit.html` | Bilingual partner/sponsor profile — audience numbers, demographics, collaboration options. |
 | `Game-Zanga-Media-Kit-2026.pdf` | A4 PDF rendered from the above (Puppeteer, print stylesheet). |
 | `Game-Zanga-Media-Kit-2026.docx` | Editable version for Google Docs / Word — built by `scripts/build-media-kit-docx.mjs`. |
+| `results-gz14/` | Embargoed edition-14 standings + the generated top-10 winner cards. |
 | `itchio-page.html` | RTL Arabic fragment to paste into the itch.io jam description. |
 
 Media-kit figures come from `scripts/media-kit-stats.mjs` and are **hand-updated** — re-run it and
